@@ -472,7 +472,7 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             f"⚡ **Pico Exclusivo de {info_b['nome_urna']}**\n\n"
             f"**{top_bast_b['unidade']}**\n\n"
             f"• {info_b['nome_urna']}: **{fmt_pct(top_bast_b['pct_b'])}**\n\n"
-            f"• {info_a['nome_urna']}: **{fmt_pct(top_bast_a['pct_a'])}** (Diferença: {fmt_pct(-top_bast_b['dif_a_b'])})"
+            f"• {info_a['nome_urna']}: **{fmt_pct(top_bast_b['pct_a'])}** (Diferença: {fmt_pct(-top_bast_b['dif_a_b'])})"
         )
 
     # --- 7. TABELA DETALHADA COM BUSCA E DOWNLOAD ---
@@ -506,7 +506,7 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     )
 
     # Download CSV
-    csv_bytes = df_tab[cols_show].to_csv(index=False).encode('utf-8-sig')
+    csv_bytes = df_tab_view[cols_show].to_csv(index=False).encode('utf-8-sig')
     st.download_button(
         label="📥 Exportar Dados do Cruzamento (.CSV)",
         data=csv_bytes,
