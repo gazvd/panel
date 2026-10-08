@@ -22,6 +22,37 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- SISTEMA DE SENHA / ACESSO RESTRITO ---
+def check_password():
+    """Verifica se o usuário digitou a senha correta."""
+    if st.session_state.get("password_correct", False):
+        return True
+
+    st.markdown("### 🔒 Acesso Restrito - Inteligência Eleitoral PE")
+    st.text_input("Digite a senha para acessar o painel:", type="password", key="password")
+    
+    # Obter senha dos secrets de forma segura (com fallback)
+    correct_password = "demokratia"
+    try:
+        if "password" in st.secrets:
+            correct_password = str(st.secrets["password"])
+        elif "PASSWORD" in st.secrets:
+            correct_password = str(st.secrets["PASSWORD"])
+    except Exception:
+        pass
+
+    user_password = st.session_state.get("password", "")
+    if user_password and user_password == correct_password:
+        st.session_state["password_correct"] = True
+        st.rerun()
+    elif user_password:
+        st.error("Senha incorreta. Tente novamente.")
+    return False
+
+if not check_password():
+    st.stop()
+
+
 # 2. Carregar metadados e mapeamento de municípios
 df_meta = get_metadata_filtros()
 gdf_mun_base = load_municipios_gdf()
