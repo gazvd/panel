@@ -1,0 +1,9 @@
+streamlit
+duckdb
+pandas
+geopandas
+folium
+streamlit-folium
+pyarrow
+shapely
+plotly

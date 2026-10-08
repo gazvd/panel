@@ -1,0 +1,190 @@
+import os
+from pathlib import Path
+
+# Diretórios base
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+LAYERS_DIR = BASE_DIR / "layers"
+
+# Caminhos das bases de dados
+PATH_RESULTADOS = DATA_DIR / "resultados_eleicoes_pe.parquet"
+PATH_LOCAIS_PARQUET = DATA_DIR / "locais_votacao_pe.parquet"
+PATH_LOCAIS_CSV = DATA_DIR / "locais_votacao_pe.csv"
+
+# Caminhos das camadas geoespaciais (GeoParquet otimizado + GeoJSON fallback)
+PATH_GEO_REGIOES = LAYERS_DIR / "regioes" / "pe_regioes_desenvolvimento.geojson"
+PATH_GEO_MUNICIPIOS = LAYERS_DIR / "municipios" / "pe_municipios.geojson"
+PATH_GEO_ZONAS = LAYERS_DIR / "zonas" / "pe_zonas_eleitorais.parquet"
+PATH_GEO_DISTRITOS = LAYERS_DIR / "distritos" / "pe_distritos.parquet"
+PATH_GEO_MOSAICO = LAYERS_DIR / "bairros" / "pe_mosaico_bairros_distritos.parquet"
+PATH_GEO_RECIFE_BAIRROS = LAYERS_DIR / "bairros" / "recife_bairros.geojson"
+
+# Lista oficial das 12 Regiões de Desenvolvimento de Pernambuco (com Fernando de Noronha na Metropolitana)
+REGIOES_DESENVOLVIMENTO = [
+    "METROPOLITANA",
+    "MATA NORTE",
+    "MATA SUL",
+    "AGRESTE CENTRAL",
+    "AGRESTE SETENTRIONAL",
+    "AGRESTE MERIDIONAL",
+    "SERTÃO DO MOXOTÓ",
+    "SERTÃO DO PAJEÚ",
+    "SERTÃO CENTRAL",
+    "SERTÃO DE ITAPARICA",
+    "SERTÃO DO ARARIPE",
+    "SERTÃO DO SÃO FRANCISCO"
+]
+
+# Paleta oficial de cores para partidos
+CORES_PARTIDOS = {
+    "PT": "#E31A1C",
+    "PL": "#002B7F",
+    "PSB": "#FF7F00",
+    "PSDB": "#1F78B4",
+    "MDB": "#33A02C",
+    "UNIÃO": "#6A3D9A",
+    "PP": "#0099FF",
+    "PSD": "#FB9A99",
+    "REPUBLICANOS": "#0055A5",
+    "PODEMOS": "#00C0FF",
+    "PDT": "#B15928",
+    "SOLIDARIEDADE": "#FF6600",
+    "PSOL": "#FFFF33",
+    "PC do B": "#800000",
+    "CIDADANIA": "#E7298A",
+    "AVANTE": "#66A61E",
+    "NOVO": "#FF8C00",
+    "PRTB": "#006600",
+    "REDE": "#00CC99",
+    "PV": "#2CA02C"
+}
+COR_PADRAO = "#4A90E2"
+
+# Mapeamento histórico de presidenciáveis por pleito e partido
+PRESIDENTES_NOMES = {
+    (2026, "PT"): "Lula",
+    (2026, "PL"): "Jair Bolsonaro",
+    (2022, "PT"): "Lula",
+    (2022, "PL"): "Jair Bolsonaro",
+    (2022, "PDT"): "Ciro Gomes",
+    (2022, "MDB"): "Simone Tebet",
+    (2022, "UNIÃO"): "Soraya Thronicke",
+    (2022, "NOVO"): "Felipe d'Avila",
+    (2018, "PSL"): "Jair Bolsonaro",
+    (2018, "PT"): "Fernando Haddad",
+    (2018, "PDT"): "Ciro Gomes",
+    (2018, "PSDB"): "Geraldo Alckmin",
+    (2018, "NOVO"): "João Amoêdo",
+    (2018, "MDB"): "Henrique Meirelles",
+    (2018, "REDE"): "Marina Silva",
+    (2018, "PSOL"): "Guilherme Boulos",
+    (2014, "PT"): "Dilma Rousseff",
+    (2014, "PSDB"): "Aécio Neves",
+    (2014, "PSB"): "Marina Silva",
+    (2014, "PSC"): "Pastor Everaldo",
+    (2014, "PV"): "Eduardo Jorge",
+    (2014, "PSOL"): "Luciana Genro",
+    (2010, "PT"): "Dilma Rousseff",
+    (2010, "PSDB"): "José Serra",
+    (2010, "PV"): "Marina Silva",
+    (2010, "PSOL"): "Plínio de Arruda Sampaio"
+}
+
+def fmt_int(val):
+    """Formata inteiros com separador de milhar ponto: 1.234.567"""
+    if val is None or (hasattr(val, '__iter__') and len(val) == 0):
+        return "-"
+    try:
+        import pandas as pd
+        if pd.isna(val): return "-"
+        return f"{int(round(float(val))):,}".replace(",", ".")
+    except (ValueError, TypeError):
+        return str(val)
+
+def fmt_pct(val, decimals=2, include_symbol=True):
+    """Formata percentuais no padrão brasileiro: 44,82%"""
+    if val is None:
+        return "-"
+    try:
+        import pandas as pd
+        if pd.isna(val): return "-"
+        sym = "%" if include_symbol else ""
+        return f"{float(val):.{decimals}f}".replace(".", ",") + sym
+    except (ValueError, TypeError):
+        return str(val)
+
+def normalize_text(s):
+    """Remove acentos e converte para maiúsculas para buscas insensíveis a acentuação e caixa."""
+    if s is None:
+        return ""
+    import unicodedata
+    return unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('ASCII').upper().strip()
+
+def get_cores_foco(nome_candidato=None, sigla_partido=None):
+    """
+    Retorna (cor_hex, escala_plotly, escala_folium) de acordo com a identidade visual:
+    - João Campos / PSB: Amarelo (#FFCC00 / YlOrRd)
+    - Raquel Lyra: Roxo (#6F2C91 / Purples)
+    - PT / Lula: Vermelho (#E31A1C / Reds)
+    - PL / Bolsonaro / Gilson: Azul (#002B7F / Blues)
+    """
+    import unicodedata
+    def _norm(s):
+        if not s: return ""
+        return unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('ASCII').upper().strip()
+
+    c_norm = _norm(nome_candidato)
+    p_norm = _norm(sigla_partido)
+    
+    # 1. Candidatos com identidade visual marcante
+    if any(k in c_norm for k in ["JOAO CAMPOS", "DANILO CABRAL"]):
+        return "#FFCC00", ["#FFF9C4", "#FDD835", "#F57F17", "#E65100"], "YlOrRd"
+        
+    if "RAQUEL LYRA" in c_norm:
+        return "#6F2C91", ["#E1BEE7", "#AB47BC", "#7B1FA2", "#4A148C"], "Purples"
+        
+    if "MARILIA ARRAES" in c_norm:
+        if p_norm == "PT":
+            return "#E31A1C", ["#FFCDD2", "#E53935", "#B71C1C"], "Reds"
+        else:
+            return "#FF6600", ["#FFE0B2", "#FB8C00", "#E65100"], "Oranges"
+            
+    if any(k in c_norm for k in ["LULA", "HUMBERTO COSTA", "TERESA LEITAO"]):
+        return "#E31A1C", ["#FFCDD2", "#E53935", "#B71C1C"], "Reds"
+        
+    if any(k in c_norm for k in ["GILSON MACHADO", "BOLSONARO", "ANDERSON FERREIRA", "MANO MEDEIROS"]):
+        return "#002B7F", ["#BBDEFB", "#1976D2", "#0D47A1"], "Blues"
+        
+    if "MIGUEL COELHO" in c_norm or "SIMAO DURANDO" in c_norm:
+        return "#6A3D9A", ["#E1BEE7", "#8E24AA", "#4A148C"], "Purples"
+        
+    if "DANIEL COELHO" in c_norm:
+        return "#0099FF", ["#B3E5FC", "#03A9F4", "#01579B"], "PuBu"
+        
+    # 2. Por Partido
+    if p_norm in ["PT", "PC DO B", "PCO", "PSTU"]:
+        return "#E31A1C", ["#FFCDD2", "#E53935", "#B71C1C"], "Reds"
+        
+    if p_norm in ["PSB", "PSOL"]:
+        return "#FFCC00", ["#FFF9C4", "#FDD835", "#F57F17", "#E65100"], "YlOrRd"
+        
+    if p_norm in ["PL", "REPUBLICANOS", "PP", "PODEMOS", "PRTB"]:
+        return "#002B7F", ["#BBDEFB", "#1976D2", "#0D47A1"], "Blues"
+        
+    if p_norm in ["UNIÃO", "UNIAO"]:
+        return "#6A3D9A", ["#E1BEE7", "#8E24AA", "#4A148C"], "Purples"
+        
+    if p_norm in ["PSDB", "CIDADANIA"]:
+        return "#1F78B4", ["#BBDEFB", "#1976D2", "#0D47A1"], "Blues"
+        
+    if p_norm in ["MDB", "PV", "AVANTE", "REDE"]:
+        return "#27AE60", ["#C8E6C9", "#43A047", "#1B5E20"], "Greens"
+        
+    if p_norm in ["SOLIDARIEDADE", "NOVO"]:
+        return "#FF6600", ["#FFE0B2", "#FB8C00", "#E65100"], "Oranges"
+        
+    if p_norm == "PDT":
+        return "#B15928", ["#D7CCC8", "#8D6E63", "#4E342E"], "YlOrBr"
+        
+    # Padrão suave
+    return "#2980B9", ["#BBDEFB", "#1976D2", "#0D47A1"], "Blues"
