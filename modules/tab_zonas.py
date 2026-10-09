@@ -7,8 +7,9 @@ from modules.geo_loader import load_zonas_gdf
 from modules.data_loader import get_votos_zonas
 from config import fmt_int, fmt_pct, get_cores_foco, normalize_text
 
-def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map):
-    modo_todos = (cand_selecionado is None and partido_selecionado is None)
+def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
+    if modo_todos is None:
+        modo_todos = (cand_selecionado is None and partido_selecionado is None)
 
     if modo_todos:
         st.markdown("### 🗳️ Zonas Eleitorais — Mapa de Vencedores (209 Unidades Zona-Município)")

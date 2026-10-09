@@ -185,6 +185,9 @@ st.sidebar.caption(
     "• 22.111 Seções Eleitorais\n"
     "• TRE-PE / TSE Oficial"
 )
+if st.sidebar.button("🔄 Limpar Cache / Recarregar", key="btn_clear_cache", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
 
 # 4. Cabeçalho Principal
 modo_todos = (cand_selecionado is None and partido_selecionado is None)
@@ -201,6 +204,9 @@ st.markdown(
     f"##### Eleições {ano_sel} • {turno_sel}º Turno • **{cargo_sel.upper()}** — Exibindo: **{alvo_display}{partido_badge}**"
 )
 
+if modo_todos:
+    st.info("🗺️ **Modo Mapa de Vencedores:** Exibindo os líderes de votos em cada região, município, zona eleitoral, bairro e colégio eleitoral. Para analisar um candidato ou partido individualmente, basta selecioná-lo no menu lateral.")
+
 # 5. Estrutura em Abas Modulares
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🌍 Regiões de Desenvolvimento (12)",
@@ -212,19 +218,20 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 with tab1:
-    render_tab_macrorregioes(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map)
+    render_tab_macrorregioes(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=modo_todos)
 
 with tab2:
-    render_tab_municipios(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map)
+    render_tab_municipios(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=modo_todos)
 
 with tab3:
-    render_tab_zonas(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map)
+    render_tab_zonas(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=modo_todos)
 
 with tab4:
-    render_tab_bairros(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map)
+    render_tab_bairros(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=modo_todos)
 
 with tab5:
-    render_tab_locais(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map)
+    render_tab_locais(ano_sel, turno_sel, cargo_sel, modo_analise, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=modo_todos)
 
 with tab6:
     render_tab_cruzamento(df_meta, df_mun_map)
+

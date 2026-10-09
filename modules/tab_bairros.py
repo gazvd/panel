@@ -9,8 +9,9 @@ from modules.data_loader import get_locais_votacao_base
 import duckdb
 from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, normalize_text
 
-def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map):
-    modo_todos = (cand_selecionado is None and partido_selecionado is None)
+def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
+    if modo_todos is None:
+        modo_todos = (cand_selecionado is None and partido_selecionado is None)
 
     # Seletor de Município e Critério
     muns_nomes = sorted(df_mun_map['NM_MUN'].unique().tolist())
