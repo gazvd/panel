@@ -420,10 +420,6 @@ def render_painel_eleitos(
     - Deputado Estadual: Bancada oficial da ALEPE (49 deputados).
     - Deputado Federal: Bancada oficial de PE na Câmara Federal (25 deputados).
     """
-    # 2026 é eleição projetada/futura: não há mandatos eleitos oficiais
-    if ano >= 2026:
-        return
-
     # Cargos legislativos/executivos com mandatos partidários específicos
     if cargo not in ["prefeito", "vereador", "deputado estadual", "deputado federal"]:
         return
