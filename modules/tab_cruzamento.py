@@ -116,10 +116,8 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             return
 
     # Cores personalizadas para os candidatos
-    cores_cand_a = get_cores_foco(info_a['nome_urna'], info_a['sigla_partido'])
-    cores_cand_b = get_cores_foco(info_b['nome_urna'], info_b['sigla_partido'])
-    cor_a = cores_cand_a['primaria']
-    cor_b = cores_cand_b['primaria']
+    cor_a, _, _ = get_cores_foco(info_a['nome_urna'], info_a['sigla_partido'])
+    cor_b, _, _ = get_cores_foco(info_b['nome_urna'], info_b['sigla_partido'])
     if cor_a.lower() == cor_b.lower():
         cor_a = "#2980B9"  # Azul Cobalto
         cor_b = "#8E44AD"  # Roxo
