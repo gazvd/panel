@@ -199,3 +199,24 @@ def get_cores_foco(nome_candidato=None, sigla_partido=None):
         
     # Padrão suave
     return "#2980B9", ["#BBDEFB", "#1976D2", "#0D47A1"], "Blues"
+
+def get_contrast_color(hex_bg):
+    """
+    Retorna '#FFFFFF' ou '#1A1A1A' de acordo com a luminância relativa (WCAG 2.1),
+    assegurando conformidade AA (>= 4.5:1) ou AAA (>= 7.0:1) para texto sobre fundo colorido.
+    """
+    if not hex_bg or not isinstance(hex_bg, str) or not hex_bg.startswith("#"):
+        return "#FFFFFF"
+    try:
+        h = hex_bg.lstrip("#")
+        if len(h) != 6:
+            return "#FFFFFF"
+        r, g, b = [int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4)]
+        def adjust(c):
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+        lum = 0.2126 * adjust(r) + 0.7152 * adjust(g) + 0.0722 * adjust(b)
+        cr_white = 1.05 / (lum + 0.05)
+        cr_black = (lum + 0.05) / 0.06
+        return "#FFFFFF" if cr_white >= cr_black else "#1A1A1A"
+    except Exception:
+        return "#FFFFFF"

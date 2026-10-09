@@ -4,7 +4,7 @@ from streamlit_folium import st_folium
 import pandas as pd
 from modules.data_loader import get_locais_votacao_base
 import duckdb
-from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, normalize_text
+from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text
 
 def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
     if modo_todos is None:
@@ -155,12 +155,16 @@ def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecio
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['nome_local'][:22]}...)" if menor_margem is not None else "-")
 
         # Badges
-        placar_html = " ".join([
-            f"<span style='background-color: {get_cores_foco(cand)[0]}; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-            f"{cand}: {cnt} {'colégio' if cnt == 1 else 'colégios'} ({cnt/len(df_loc_view)*100:.1f}%)"
-            f"</span>"
-            for cand, cnt in venc_counts.items()
-        ])
+        badges = []
+        for cand, cnt in venc_counts.items():
+            bg_c = get_cores_foco(cand)[0]
+            fg_c = get_contrast_color(bg_c)
+            badges.append(
+                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
+                f"{cand}: {cnt} {'colégio' if cnt == 1 else 'colégios'} ({cnt/len(df_loc_view)*100:.1f}%)"
+                f"</span>"
+            )
+        placar_html = " ".join(badges)
         st.markdown(f"**Placar de Colégios Conquistados ({mun_nome_sel}):** {placar_html}", unsafe_allow_html=True)
         st.divider()
 
@@ -189,13 +193,14 @@ def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecio
             for _, row in loc_geo.iterrows():
                 radius = 8
                 tooltip_txt = f"{row['nome_local']} — 🥇 {row['vencedor']}: {row['pct_vencedor_fmt']} | Margem: {row['margem_pct_fmt']}"
+                venc_fg = get_contrast_color(row['cor'])
 
                 popup_html = f"""
                 <div style="font-family: sans-serif; font-size: 12px; width: 260px;">
                     <b style="color: #2C3E50;">{row['nome_local']}</b><br>
                     <b>Bairro:</b> {row['bairro']} | <b>Zona:</b> {row['zona']}<br>
                     <hr style="margin: 5px 0;">
-                    <b style="color: {row['cor']};">🥇 Vencedor: {row['vencedor']} ({row['partido_vencedor']})</b><br>
+                    <span style="background-color: {row['cor']}; color: {venc_fg}; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; margin-bottom: 3px;">🥇 Vencedor: {row['vencedor']} ({row['partido_vencedor']})</span><br>
                     • {row['votos_vencedor_fmt']} votos ({row['pct_vencedor_fmt']})<br>
                     <b>🥈 2º Colocado: {row['segundo']} ({row['partido_segundo']})</b><br>
                     • {row['votos_segundo_fmt']} votos ({row['pct_segundo_fmt']})<br>

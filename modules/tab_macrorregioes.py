@@ -5,7 +5,7 @@ import plotly.express as px
 import pandas as pd
 from modules.geo_loader import load_regioes_gdf
 from modules.data_loader import get_votos_municipios
-from config import CORES_PARTIDOS, COR_PADRAO, fmt_int, fmt_pct, get_cores_foco, normalize_text
+from config import CORES_PARTIDOS, COR_PADRAO, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text
 
 def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
     if modo_todos is None:
@@ -40,12 +40,16 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['REGIAO_DESENVOLVIMENTO']})")
         
         # Placar de Vitórias
-        placar_html = " ".join([
-            f"<span style='background-color: {get_cores_foco(cand)[0]}; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-            f"{cand}: {cnt} {'região' if cnt == 1 else 'regiões'} ({cnt/len(df_venc)*100:.1f}%)"
-            f"</span>"
-            for cand, cnt in venc_counts.items()
-        ])
+        badges = []
+        for cand, cnt in venc_counts.items():
+            bg_c = get_cores_foco(cand)[0]
+            fg_c = get_contrast_color(bg_c)
+            badges.append(
+                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
+                f"{cand}: {cnt} {'região' if cnt == 1 else 'regiões'} ({cnt/len(df_venc)*100:.1f}%)"
+                f"</span>"
+            )
+        placar_html = " ".join(badges)
         st.markdown(f"**Placar de Liderança Regional:** {placar_html}", unsafe_allow_html=True)
         st.divider()
         

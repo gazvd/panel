@@ -7,7 +7,7 @@ import geopandas as gpd
 from modules.geo_loader import load_mosaico_bairros_gdf
 from modules.data_loader import get_locais_votacao_base
 import duckdb
-from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, normalize_text
+from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text
 
 def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
     if modo_todos is None:
@@ -151,12 +151,16 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['NM_BAIRRO']})" if menor_margem is not None else "-")
 
         # Badges
-        placar_html = " ".join([
-            f"<span style='background-color: {get_cores_foco(cand)[0]}; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-            f"{cand}: {cnt} {'bairro' if cnt == 1 else 'bairros'} ({cnt/len(df_view)*100:.1f}%)"
-            f"</span>"
-            for cand, cnt in venc_counts.items()
-        ])
+        badges = []
+        for cand, cnt in venc_counts.items():
+            bg_c = get_cores_foco(cand)[0]
+            fg_c = get_contrast_color(bg_c)
+            badges.append(
+                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
+                f"{cand}: {cnt} {'bairro' if cnt == 1 else 'bairros'} ({cnt/len(df_view)*100:.1f}%)"
+                f"</span>"
+            )
+        placar_html = " ".join(badges)
         st.markdown(f"**Placar de Bairros Conquistados ({mun_nome_sel}):** {placar_html}", unsafe_allow_html=True)
         st.divider()
 
