@@ -185,13 +185,20 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             st.warning(f"Nenhum registro encontrado para {cargo_b.title()} em {ano_b}.")
             return
 
-    # Nomes para exibição gráfica
-    nome_a = f"{info_a['sigla_partido']} (Partido)" if is_partido_a else info_a['nome_urna']
-    nome_b = f"{info_b['sigla_partido']} (Partido)" if is_partido_b else info_b['nome_urna']
+    # Nomes para exibição gráfica com ano do pleito
+    nome_a_base = f"{info_a['sigla_partido']} (Partido)" if is_partido_a else info_a['nome_urna']
+    nome_b_base = f"{info_b['sigla_partido']} (Partido)" if is_partido_b else info_b['nome_urna']
+
+    if ano_a == ano_b and nome_a_base == nome_b_base and cargo_a != cargo_b:
+        nome_a = f"{nome_a_base} ({ano_a} - {cargo_a.title()})"
+        nome_b = f"{nome_b_base} ({ano_b} - {cargo_b.title()})"
+    else:
+        nome_a = f"{nome_a_base} ({ano_a})"
+        nome_b = f"{nome_b_base} ({ano_b})"
 
     # Cores personalizadas para os candidatos / partidos
-    cor_a, _, _ = get_cores_foco(nome_a, info_a['sigla_partido'])
-    cor_b, _, _ = get_cores_foco(nome_b, info_b['sigla_partido'])
+    cor_a, _, _ = get_cores_foco(nome_a_base, info_a['sigla_partido'])
+    cor_b, _, _ = get_cores_foco(nome_b_base, info_b['sigla_partido'])
     if cor_a.lower() == cor_b.lower():
         cor_a = "#2980B9"  # Azul Cobalto
         cor_b = "#8E44AD"  # Roxo
