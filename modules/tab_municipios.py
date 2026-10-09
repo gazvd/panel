@@ -80,118 +80,22 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
         col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['NM_MUN']})" if top_margem is not None else "-")
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['NM_MUN']})" if menor_margem is not None else "-")
 
-        # Placar de vitórias e Filtro Clicável por Vencedor
-        cand_part_map = dict(zip(df_view_base['vencedor'], df_view_base['partido_vencedor']))
-        cands_ordenados = list(venc_counts.index)
+        df_view = df_view_base.copy()
 
-        # Gerenciamento de Estado no session_state com callbacks
-        sb_key = f"sb_venc_mun_{ano}_{cargo}_{turno}_{rd_filtro}"
-        if sb_key not in st.session_state:
-            st.session_state[sb_key] = "TODOS"
-
-        if st.session_state[sb_key] != "TODOS" and st.session_state[sb_key] not in cands_ordenados:
-            st.session_state[sb_key] = "TODOS"
-
-        def _set_filtro_venc_mun(cand_nome):
-            st.session_state[sb_key] = cand_nome
-
-        # 1. Controles de Seleção (Dropdown com busca + Botão Reset)
-        c_sel_venc, c_btn_limpar = st.columns([3.8, 1.2])
-
-        opcoes_select = ["TODOS"] + cands_ordenados
-        def format_select_cand(c):
-            if c == "TODOS":
-                return f"🌐 TODOS OS VENCEDORES (Visão Geral de Pernambuco — {len(df_view_base)} mun.)"
-            cnt = venc_counts.get(c, 0)
-            pct = 100.0 * cnt / len(df_view_base) if len(df_view_base) > 0 else 0
-            part = cand_part_map.get(c, "")
-            part_str = f" ({part})" if part and part != '-' else ""
-            idx = cands_ordenados.index(c) + 1
-            medal = "🥇 " if idx == 1 else ("🥈 " if idx == 2 else ("🥉 " if idx == 3 else f"#{idx} "))
-            return f"{medal}{c}{part_str} — {cnt} {'cidade' if cnt == 1 else 'cidades'} ({pct:.1f}%)"
-
-        with c_sel_venc:
-            cand_filtro_clique = st.selectbox(
-                "🎯 Filtrar e Isolar Cidades Conquistadas por um Vencedor:",
-                opcoes_select,
-                format_func=format_select_cand,
-                key=sb_key
-            )
-
-        with c_btn_limpar:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            st.button(
-                "🔄 Ver Todos",
-                key=f"btn_reset_venc_mun_{ano}_{cargo}_{turno}_{rd_filtro}",
-                use_container_width=True,
-                disabled=(cand_filtro_clique == "TODOS"),
-                on_click=_set_filtro_venc_mun,
-                args=("TODOS",)
-            )
-
-        # 2. Quick-Click Buttons para Top Candidatos
-        if len(cands_ordenados) > 1:
-            top_quick = cands_ordenados[:min(5, len(cands_ordenados))]
-            cols_quick = st.columns(len(top_quick) + 1)
-            with cols_quick[0]:
-                st.button(
-                    "🌐 Todos",
-                    key=f"qk_todos_{ano}_{cargo}_{turno}_{rd_filtro}",
-                    use_container_width=True,
-                    type="primary" if cand_filtro_clique == "TODOS" else "secondary",
-                    on_click=_set_filtro_venc_mun,
-                    args=("TODOS",)
+        # Placar exclusivo para análise por partido (simples e direto)
+        if modo == "Partido":
+            badges = []
+            for partido, cnt in venc_counts.items():
+                bg_c = get_cores_foco(sigla_partido=partido)[0]
+                fg_c = get_contrast_color(bg_c)
+                badges.append(
+                    f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.88rem;'>"
+                    f"{partido}: {cnt} {'cidade' if cnt == 1 else 'cidades'} ({cnt/len(df_view_base)*100:.1f}%)"
+                    f"</span>"
                 )
-            for idx_q, cq in enumerate(top_quick):
-                with cols_quick[idx_q + 1]:
-                    cnt_q = venc_counts.get(cq, 0)
-                    label_q = f"{cq.split()[0]} ({cnt_q})"
-                    is_q_active = (cand_filtro_clique == cq)
-                    st.button(
-                        label_q,
-                        key=f"qk_{idx_q}_{ano}_{cargo}_{turno}_{rd_filtro}",
-                        use_container_width=True,
-                        type="primary" if is_q_active else "secondary",
-                        on_click=_set_filtro_venc_mun,
-                        args=(cq,)
-                    )
-
-        # 3. Placar Visual com Badges Coloridos (Estilo Oficial com Destaque Dinâmico)
-        badges = []
-        for cand, cnt in venc_counts.items():
-            bg_c = get_cores_foco(cand, cand_part_map.get(cand))[0]
-            fg_c = get_contrast_color(bg_c)
-            is_ativo = (cand_filtro_clique == cand)
-
-            if cand_filtro_clique == "TODOS":
-                opacity = "1.0"
-                border = f"1px solid {bg_c}"
-                box_shadow = "none"
-            elif is_ativo:
-                opacity = "1.0"
-                border = "3px solid #1A252F"
-                box_shadow = f"0 0 10px {bg_c}"
-            else:
-                opacity = "0.40"
-                border = "1px solid #D5D8DC"
-                box_shadow = "none"
-
-            badges.append(
-                f"<span style='display: inline-block; background-color: {bg_c}; color: {fg_c}; "
-                f"padding: 4px 10px; border-radius: 12px; margin: 3px 6px 3px 0; font-weight: bold; font-size: 0.88rem; "
-                f"opacity: {opacity}; border: {border}; box-shadow: {box_shadow}; transition: all 0.2s;'>"
-                f"{'⭐ ' if is_ativo else ''}{cand}: {cnt} {'cidade' if cnt == 1 else 'cidades'} ({cnt/len(df_view_base)*100:.1f}%)"
-                f"</span>"
-            )
-        placar_html = " ".join(badges)
-        st.markdown(f"**Placar de Cidades Conquistadas:**<br>{placar_html}", unsafe_allow_html=True)
-
-        # 4. Filtrar df_view se houver candidato selecionado
-        if cand_filtro_clique and cand_filtro_clique != "TODOS":
-            df_view = df_view_base[df_view_base['vencedor'] == cand_filtro_clique].copy()
-            st.info(f"🎯 **Filtro Ativo:** Exibindo os **{len(df_view)} municípios** conquistados por **{cand_filtro_clique} ({cand_part_map.get(cand_filtro_clique, '')})**. Clique em 'Ver Todos' para restaurar a visão geral.")
-        else:
-            df_view = df_view_base.copy()
+            placar_html = " ".join(badges)
+            st.markdown(f"**Placar de Cidades Conquistadas por Partido:** {placar_html}", unsafe_allow_html=True)
+            st.write("")
 
         st.divider()
 
@@ -254,15 +158,6 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
             center_lon = (bounds[0] + bounds[2]) / 2
             zoom = 8 if rd_filtro != "TODAS" else 7
 
-            if cand_filtro_clique and cand_filtro_clique != "TODOS":
-                c_gdf = gdf_mun[gdf_mun['vencedor'] == cand_filtro_clique]
-                if len(c_gdf) > 0:
-                    c_bounds = c_gdf.total_bounds
-                    if len(c_bounds) == 4 and not any(pd.isna(c_bounds)):
-                        center_lat = (c_bounds[1] + c_bounds[3]) / 2
-                        center_lon = (c_bounds[0] + c_bounds[2]) / 2
-                        zoom = 8
-
             if busca_mun.strip() and len(df_view) == 1:
                 m_bounds = gdf_mun[gdf_mun['CD_MUN'] == df_view.iloc[0]['CD_MUN']].total_bounds
                 if len(m_bounds) == 4 and not any(pd.isna(m_bounds)):
@@ -274,22 +169,6 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
 
             def style_mun(feature):
                 c = feature['properties'].get('cor') or '#2980B9'
-                venc = feature['properties'].get('vencedor')
-                if cand_filtro_clique and cand_filtro_clique != "TODOS":
-                    if venc == cand_filtro_clique:
-                        return {
-                            'fillColor': c,
-                            'color': '#1A252F',
-                            'weight': 2.2,
-                            'fillOpacity': 0.85
-                        }
-                    else:
-                        return {
-                            'fillColor': '#EAEDED',
-                            'color': '#BDC3C7',
-                            'weight': 0.7,
-                            'fillOpacity': 0.20
-                        }
                 return {
                     'fillColor': c,
                     'color': '#34495E',
@@ -308,7 +187,7 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
 
             st_folium(
                 m,
-                key=f"folium_mun_{cand_filtro_clique}_{rd_filtro}_{criterio_venc}_{ano}_{cargo}_{turno}",
+                key=f"folium_mun_todos_{rd_filtro}_{criterio_venc}_{ano}_{cargo}_{turno}",
                 returned_objects=[],
                 height=430,
                 width="100%"

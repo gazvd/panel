@@ -150,18 +150,6 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
         col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['NM_BAIRRO']})" if top_margem is not None else "-")
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['NM_BAIRRO']})" if menor_margem is not None else "-")
 
-        # Badges
-        badges = []
-        for cand, cnt in venc_counts.items():
-            bg_c = get_cores_foco(cand)[0]
-            fg_c = get_contrast_color(bg_c)
-            badges.append(
-                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-                f"{cand}: {cnt} {'bairro' if cnt == 1 else 'bairros'} ({cnt/len(df_view)*100:.1f}%)"
-                f"</span>"
-            )
-        placar_html = " ".join(badges)
-        st.markdown(f"**Placar de Bairros Conquistados ({mun_nome_sel}):** {placar_html}", unsafe_allow_html=True)
         st.divider()
 
         # Ordenação

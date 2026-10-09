@@ -154,18 +154,6 @@ def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecio
         col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['nome_local']})" if top_margem is not None else "-")
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['nome_local']})" if menor_margem is not None else "-")
 
-        # Badges
-        badges = []
-        for cand, cnt in venc_counts.items():
-            bg_c = get_cores_foco(cand)[0]
-            fg_c = get_contrast_color(bg_c)
-            badges.append(
-                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-                f"{cand}: {cnt} {'colégio' if cnt == 1 else 'colégios'} ({cnt/len(df_loc_view)*100:.1f}%)"
-                f"</span>"
-            )
-        placar_html = " ".join(badges)
-        st.markdown(f"**Placar de Colégios Conquistados ({mun_nome_sel}):** {placar_html}", unsafe_allow_html=True)
         st.divider()
 
         # Ordenação
