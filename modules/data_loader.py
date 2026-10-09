@@ -789,3 +789,83 @@ def get_vencedores_secoes_mun(ano: int, turno: int, cargo: str, id_municipio: in
         """
         return con.execute(q).df()
 
+@st.cache_data(ttl=3600)
+def get_eleitos_prefeitos(ano: int):
+    """
+    Retorna os prefeitos eleitos em Pernambuco no ano especificado:
+    - id_municipio
+    - sigla_partido
+    - nome_urna
+    - numero_candidato
+    - turno
+    - total_votos
+    """
+    con = get_connection()
+    res_path = str(PATH_RESULTADOS).replace("\\", "/")
+    q = f"""
+        SELECT 
+            id_municipio,
+            sigla_partido,
+            nome_urna,
+            numero_candidato,
+            turno,
+            SUM(total_votos) as total_votos
+        FROM '{res_path}'
+        WHERE ano = {ano} AND cargo = 'prefeito' AND resultado ILIKE 'eleito%'
+        GROUP BY id_municipio, sigla_partido, nome_urna, numero_candidato, turno
+        ORDER BY total_votos DESC
+    """
+    return con.execute(q).df()
+
+@st.cache_data(ttl=3600)
+def get_eleitos_vereadores(ano: int, id_municipio: int = None):
+    """
+    Retorna os vereadores eleitos no ano especificado (no estado ou em um município):
+    - id_municipio
+    - sigla_partido
+    - nome_urna
+    - numero_candidato
+    - total_votos
+    """
+    con = get_connection()
+    res_path = str(PATH_RESULTADOS).replace("\\", "/")
+    where_mun = f"AND id_municipio = {id_municipio}" if id_municipio else ""
+    q = f"""
+        SELECT 
+            id_municipio,
+            sigla_partido,
+            nome_urna,
+            numero_candidato,
+            SUM(total_votos) as total_votos
+        FROM '{res_path}'
+        WHERE ano = {ano} AND cargo = 'vereador' AND resultado ILIKE 'eleito%' {where_mun}
+        GROUP BY id_municipio, sigla_partido, nome_urna, numero_candidato
+        ORDER BY total_votos DESC
+    """
+    return con.execute(q).df()
+
+@st.cache_data(ttl=3600)
+def get_eleitos_parlamentares(ano: int, cargo: str):
+    """
+    Retorna os deputados estaduais ou federais eleitos por Pernambuco:
+    - sigla_partido
+    - nome_urna
+    - numero_candidato
+    - total_votos
+    """
+    con = get_connection()
+    res_path = str(PATH_RESULTADOS).replace("\\", "/")
+    q = f"""
+        SELECT 
+            sigla_partido,
+            nome_urna,
+            numero_candidato,
+            SUM(total_votos) as total_votos
+        FROM '{res_path}'
+        WHERE ano = {ano} AND cargo = '{cargo}' AND resultado ILIKE 'eleito%'
+        GROUP BY sigla_partido, nome_urna, numero_candidato
+        ORDER BY total_votos DESC
+    """
+    return con.execute(q).df()
+
+

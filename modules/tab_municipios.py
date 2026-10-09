@@ -193,6 +193,23 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
             'total_validos_fmt': 'Total Válidos'
         })
         st.dataframe(df_table_mun, use_container_width=True, hide_index=True)
+
+        cd_mun_foco = None
+        nm_mun_foco = None
+        if busca_mun.strip() and len(df_view) == 1:
+            cd_mun_foco = df_view.iloc[0]['CD_MUN']
+            nm_mun_foco = df_view.iloc[0]['NM_MUN']
+
+        from modules.painel_eleitos import render_painel_eleitos
+        render_painel_eleitos(
+            ano=ano,
+            cargo=cargo,
+            df_mun_map=df_mun_map,
+            cd_mun_selecionado=cd_mun_foco,
+            nm_mun_selecionado=nm_mun_foco,
+            regiao_selecionada=rd_filtro if rd_filtro != "TODAS" else None,
+            tab_origem="mun_todos"
+        )
         return
 
     # MODO INDIVIDUAL (Candidato ou Partido Selecionado)
@@ -365,4 +382,21 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
         }),
         use_container_width=True,
         hide_index=True
+    )
+
+    cd_mun_foco = None
+    nm_mun_foco = None
+    if busca_mun.strip() and len(df_view) == 1:
+        cd_mun_foco = df_view.iloc[0]['CD_MUN']
+        nm_mun_foco = df_view.iloc[0]['NM_MUN']
+
+    from modules.painel_eleitos import render_painel_eleitos
+    render_painel_eleitos(
+        ano=ano,
+        cargo=cargo,
+        df_mun_map=df_mun_map,
+        cd_mun_selecionado=cd_mun_foco,
+        nm_mun_selecionado=nm_mun_foco,
+        regiao_selecionada=rd_filtro if rd_filtro != "TODAS" else None,
+        tab_origem="mun_indiv"
     )

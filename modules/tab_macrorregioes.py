@@ -131,6 +131,8 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
             'total_validos_fmt': 'Total Válidos'
         })
         st.dataframe(df_tbl, use_container_width=True, hide_index=True)
+        from modules.painel_eleitos import render_painel_eleitos
+        render_painel_eleitos(ano, cargo, df_mun_map, tab_origem="macro_todos")
         return
 
     # MODO INDIVIDUAL (Candidato ou Partido Específico)
@@ -292,4 +294,6 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         use_container_width=True,
         hide_index=True
     )
+    from modules.painel_eleitos import render_painel_eleitos
+    render_painel_eleitos(ano, cargo, df_mun_map, tab_origem="macro_indiv")
 
