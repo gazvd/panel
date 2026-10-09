@@ -39,29 +39,114 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['REGIAO_DESENVOLVIMENTO']})")
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['REGIAO_DESENVOLVIMENTO']})")
         
-        # Placar de Vitórias e Filtro Clicável por Vencedor (st.pills)
+        # Placar de Vitórias e Filtro Clicável por Vencedor
         cand_part_map = dict(zip(df_venc['vencedor'], df_venc['partido_vencedor']))
-        opcoes_pills_reg = ["TODAS"] + list(venc_counts.index)
+        cands_ordenados_reg = list(venc_counts.index)
 
-        def format_pill_reg(cand):
-            if cand == "TODAS":
-                return f"🌐 TODAS ({len(df_venc)} regiões)"
-            cnt = venc_counts.get(cand, 0)
+        # Gerenciamento de Estado no session_state com callbacks
+        sb_macro_key = f"sb_venc_macro_{ano}_{cargo}_{turno}"
+        if sb_macro_key not in st.session_state:
+            st.session_state[sb_macro_key] = "TODAS"
+
+        if st.session_state[sb_macro_key] != "TODAS" and st.session_state[sb_macro_key] not in cands_ordenados_reg:
+            st.session_state[sb_macro_key] = "TODAS"
+
+        def _set_filtro_venc_macro(cand_nome):
+            st.session_state[sb_macro_key] = cand_nome
+
+        # 1. Controles de Seleção (Dropdown com busca + Botão Reset)
+        c_sel_macro, c_btn_limpar_m = st.columns([3.8, 1.2])
+
+        opcoes_select_m = ["TODAS"] + cands_ordenados_reg
+        def format_select_reg(c):
+            if c == "TODAS":
+                return f"🌐 TODAS AS REGIÕES (Visão Geral — {len(df_venc)} regiões)"
+            cnt = venc_counts.get(c, 0)
             pct = 100.0 * cnt / len(df_venc) if len(df_venc) > 0 else 0
-            part = cand_part_map.get(cand, "")
+            part = cand_part_map.get(c, "")
             part_str = f" ({part})" if part and part != '-' else ""
-            return f"{cand}{part_str}: {cnt} ({pct:.1f}%)"
+            idx = cands_ordenados_reg.index(c) + 1
+            medal = "🥇 " if idx == 1 else ("🥈 " if idx == 2 else ("🥉 " if idx == 3 else f"#{idx} "))
+            return f"{medal}{c}{part_str} — {cnt} {'região' if cnt == 1 else 'regiões'} ({pct:.1f}%)"
 
-        cand_filtro_clique = st.pills(
-            "🏆 Placar de Liderança Regional (Clique no candidato para isolar suas regiões no mapa):",
-            options=opcoes_pills_reg,
-            default="TODAS",
-            format_func=format_pill_reg,
-            key=f"pill_venc_macro_{ano}_{cargo}_{turno}"
-        )
+        with c_sel_macro:
+            cand_filtro_clique = st.selectbox(
+                "🎯 Filtrar e Isolar Regiões Conquistadas por um Vencedor:",
+                opcoes_select_m,
+                format_func=format_select_reg,
+                key=sb_macro_key
+            )
+
+        with c_btn_limpar_m:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            st.button(
+                "🔄 Ver Todas",
+                key=f"btn_reset_venc_macro_{ano}_{cargo}_{turno}",
+                use_container_width=True,
+                disabled=(cand_filtro_clique == "TODAS"),
+                on_click=_set_filtro_venc_macro,
+                args=("TODAS",)
+            )
+
+        # 2. Quick-Click Buttons para Top Candidatos
+        if len(cands_ordenados_reg) > 1:
+            top_quick_m = cands_ordenados_reg[:min(5, len(cands_ordenados_reg))]
+            cols_quick_m = st.columns(len(top_quick_m) + 1)
+            with cols_quick_m[0]:
+                st.button(
+                    "🌐 Todas",
+                    key=f"qk_macro_todas_{ano}_{cargo}_{turno}",
+                    use_container_width=True,
+                    type="primary" if cand_filtro_clique == "TODAS" else "secondary",
+                    on_click=_set_filtro_venc_macro,
+                    args=("TODAS",)
+                )
+            for idx_qm, cqm in enumerate(top_quick_m):
+                with cols_quick_m[idx_qm + 1]:
+                    cnt_qm = venc_counts.get(cqm, 0)
+                    label_qm = f"{cqm.split()[0]} ({cnt_qm})"
+                    is_qm_active = (cand_filtro_clique == cqm)
+                    st.button(
+                        label_qm,
+                        key=f"qk_macro_{idx_qm}_{ano}_{cargo}_{turno}",
+                        use_container_width=True,
+                        type="primary" if is_qm_active else "secondary",
+                        on_click=_set_filtro_venc_macro,
+                        args=(cqm,)
+                    )
+
+        # 3. Badges Coloridos Oficiais
+        badges = []
+        for cand, cnt in venc_counts.items():
+            bg_c = get_cores_foco(cand, cand_part_map.get(cand))[0]
+            fg_c = get_contrast_color(bg_c)
+            is_ativo = (cand_filtro_clique == cand)
+
+            if cand_filtro_clique == "TODAS":
+                opacity = "1.0"
+                border = f"1px solid {bg_c}"
+                box_shadow = "none"
+            elif is_ativo:
+                opacity = "1.0"
+                border = "3px solid #1A252F"
+                box_shadow = f"0 0 10px {bg_c}"
+            else:
+                opacity = "0.40"
+                border = "1px solid #D5D8DC"
+                box_shadow = "none"
+
+            badges.append(
+                f"<span style='display: inline-block; background-color: {bg_c}; color: {fg_c}; "
+                f"padding: 4px 10px; border-radius: 12px; margin: 3px 6px 3px 0; font-weight: bold; font-size: 0.88rem; "
+                f"opacity: {opacity}; border: {border}; box-shadow: {box_shadow}; transition: all 0.2s;'>"
+                f"{'⭐ ' if is_ativo else ''}{cand}: {cnt} {'região' if cnt == 1 else 'regiões'} ({cnt/len(df_venc)*100:.1f}%)"
+                f"</span>"
+            )
+        placar_html = " ".join(badges)
+        st.markdown(f"**Placar de Regiões Conquistadas:**<br>{placar_html}", unsafe_allow_html=True)
 
         if cand_filtro_clique and cand_filtro_clique != "TODAS":
-            st.info(f"🎯 **Filtro Ativo:** Exibindo as regiões onde **{cand_filtro_clique} ({cand_part_map.get(cand_filtro_clique, '')})** foi o mais votado. Clique em 'TODAS' para ver o mapa geral.")
+            st.info(f"🎯 **Filtro Ativo:** Exibindo as regiões onde **{cand_filtro_clique} ({cand_part_map.get(cand_filtro_clique, '')})** foi o mais votado. Clique em 'Ver Todas' para ver o mapa geral.")
 
         st.divider()
         
@@ -140,7 +225,13 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
                 )
             ).add_to(m)
             
-            st_folium(m, height=430, width="100%")
+            st_folium(
+                m,
+                key=f"folium_macro_{cand_filtro_clique}_{ano}_{cargo}_{turno}",
+                returned_objects=[],
+                height=430,
+                width="100%"
+            )
             
         st.markdown("**Tabela Completa de Vencedores por Macrorregião**")
         df_tbl_view = df_venc if (not cand_filtro_clique or cand_filtro_clique == "TODAS") else df_venc[df_venc['vencedor'] == cand_filtro_clique]
