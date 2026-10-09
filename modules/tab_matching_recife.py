@@ -27,7 +27,7 @@ COR_MAJORITARIA_AUTO = "#2980B9"    # Azul Oceano: QL1 >= 1 & QL2 < 1 & QL3 < 1
 COR_PARCIAL_ESTADUAL = "#E67E22"    # Laranja: QL1 >= 1 & QL2 >= 1 & QL3 < 1
 COR_PARCIAL_FEDERAL = "#D35400"     # Ferrugem: QL1 >= 1 & QL3 >= 1 & QL2 < 1
 COR_VACUO_CHAPA = "#95A5A6"         # Cinza: QL1 < 1 & QL2 < 1 & QL3 < 1
-COR_DESCOLAMENTO_IND = "#8E44AD"    # Roxo: Outros descolamentos
+COR_DESCOLAMENTO_IND = "#34495E"    # Grafite / Petróleo Escuro: Outros descolamentos (neutro, sem conflito partidário)
 
 @st.cache_data(ttl=3600)
 def get_opcoes_partidos_recife(ano: int, turno: int, cargo: str):
@@ -153,7 +153,7 @@ def render_tab_matching_recife(df_meta, df_mun_map):
 
     # NÍVEL 2: PROPORCIONAL ESTADUAL / VEREADOR
     with c2:
-        st.markdown("#### 🔵 Nível 2: Estadual / Base (Parlamentar 1)")
+        st.markdown("#### 🟠 Nível 2: Estadual / Base (Parlamentar 1)")
         st.caption("Deputado Estadual ou Vereador")
         cb1, cb2, cb3 = st.columns([1, 1.4, 1])
         with cb1:
@@ -203,7 +203,7 @@ def render_tab_matching_recife(df_meta, df_mun_map):
 
     # NÍVEL 3: PROPORCIONAL FEDERAL / PARCERIA
     with c3:
-        st.markdown("#### 🟢 Nível 3: Federal / Parceria (Parlamentar 2)")
+        st.markdown("#### 🔵 Nível 3: Federal / Parceria (Parlamentar 2)")
         st.caption("Deputado Federal ou Segunda Dobradinha")
         cc1, cc2, cc3 = st.columns([1, 1.4, 1])
         with cc1:
@@ -262,15 +262,33 @@ def render_tab_matching_recife(df_meta, df_mun_map):
     cor_2, _, _ = get_cores_foco(item_2['nome_urna'], item_2['sigla_partido'])
     cor_3, _, _ = get_cores_foco(item_3['nome_urna'], item_3['sigla_partido'])
 
-    # Evitar colisão de cores caso pertençam ao mesmo partido
+    # Ajuste de cores para máxima clareza e fidelidade partidária:
+    # REGRA: Nenhum parlamentar da base / do PSB deve receber ROXO (cor exclusiva do PSD).
+    sigla1_u = str(item_1['sigla_partido']).upper()
+    sigla2_u = str(item_2['sigla_partido']).upper()
+    sigla3_u = str(item_3['sigla_partido']).upper()
+
+    # Se for PSB, usa o amarelo oficial #FEC806 para a majoritária
+    if "PSB" in sigla1_u:
+        cor_1 = "#FEC806"
+
+    # Se os três forem do mesmo partido ou colidirem na mesma cor (ex: os 3 do PSB)
     if cor_1.lower() == cor_2.lower() and cor_2.lower() == cor_3.lower():
-        cor_1 = "#F1C40F"  # Amarelo Ouro
-        cor_2 = "#3498DB"  # Azul Claro
-        cor_3 = "#9B59B6"  # Roxo
-    elif cor_1.lower() == cor_2.lower():
-        cor_2 = "#3498DB"
-    elif cor_2.lower() == cor_3.lower():
-        cor_3 = "#E67E22"
+        cor_1 = "#FEC806"  # Amarelo PSB oficial (Majoritária / João Campos)
+        cor_2 = "#FF8C00"  # Laranja vibrante (Estadual / Francismar)
+        cor_3 = "#1F78B4"  # Azul Cobalto (Federal / Pedro Campos)
+    else:
+        # Se 1 e 2 colidirem
+        if cor_1.lower() == cor_2.lower():
+            if cor_1.lower() in ["#fec806", "#f1c40f", "#ffff33"]:
+                cor_2 = "#FF8C00"  # Laranja se o 1 for amarelo
+            else:
+                cor_2 = "#1F78B4"  # Azul se o 1 for outra cor
+        # Se 3 colidir com 1 ou 2, ou se 3 for roxo sem ser do PSD
+        if cor_3.lower() in [cor_1.lower(), cor_2.lower()] or (cor_3.lower() in ["#9b59b6", "#8e44ad"] and "PSD" not in sigla3_u):
+            paleta_segura = ["#1F78B4", "#27AE60", "#FF8C00", "#E31A1C", "#0055A5"]
+            cores_livres = [c for c in paleta_segura if c.lower() not in [cor_1.lower(), cor_2.lower()]]
+            cor_3 = cores_livres[0] if cores_livres else "#1F78B4"
 
     # -------------------------------------------------------------
     # 2. ESCOPO TERRITORIAL E FILTROS
@@ -668,7 +686,9 @@ def render_tab_matching_recife(df_meta, df_mun_map):
 
     elif "Zonas" in granul_sel:
         gdf_zonas_geo = load_zonas_gdf(cd_mun='2611606').copy()
-        gdf_map = gdf_zonas_geo.merge(df_territorios, left_on='zona', right_on='zona', how='inner')
+        gdf_zonas_geo['zona'] = gdf_zonas_geo['CD_ZONA'].astype(int)
+        df_territorios['zona'] = df_territorios['zona'].astype(int)
+        gdf_map = gdf_zonas_geo.merge(df_territorios, on='zona', how='inner')
         if filtro_categ != "TODOS OS TERRITÓRIOS":
             gdf_map = gdf_map[gdf_map['classificacao'] == filtro_categ]
         if termo_busca:
@@ -785,8 +805,8 @@ def render_tab_matching_recife(df_meta, df_mun_map):
             )
             top10_melt['Nivel'] = top10_melt['Nivel'].map({
                 'pct_1': f"🟡 Majoritária: {item_1['nome_urna']}",
-                'pct_2': f"🔵 Parlamentar 1: {item_2['nome_urna']}",
-                'pct_3': f"🟢 Parlamentar 2: {item_3['nome_urna']}"
+                'pct_2': f"🟠 Parlamentar 1: {item_2['nome_urna']}",
+                'pct_3': f"🔵 Parlamentar 2: {item_3['nome_urna']}"
             })
             fig_bar = px.bar(
                 top10_melt,
