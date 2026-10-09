@@ -21,10 +21,10 @@ def get_cor_partido(sigla: str) -> str:
     return cor
 
 def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecionada: str = None, tab_origem: str = "mun"):
-    """Renderiza o quadro de prefeitos eleitos por partido."""
+    """Renderiza o quadro de prefeitos eleitos por partido em eleições concluídas."""
     df_pref = get_eleitos_prefeitos(ano)
     if len(df_pref) == 0:
-        st.info(f"Nenhum dado de prefeitos eleitos disponível para o ano {ano}.")
+        st.info(f"Nenhum dado de prefeitos eleitos homologados disponível para o ano {ano}.")
         return
 
     df_map_clean = df_mun_map[['CD_MUN', 'NM_MUN', 'REGIAO_DESENVOLVIMENTO']].copy()
@@ -81,7 +81,7 @@ def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecion
         )
         fig.update_layout(height=380, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
         fig.update_traces(textposition='outside')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"plot_pref_{ano}_{tab_origem}")
 
     with col_t:
         st.markdown(f"**Ranking de Prefeituras ({ano})**")
@@ -119,7 +119,6 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
     muns_dict = dict(zip(df_muns_list['NM_MUN'], df_muns_list['CD_MUN']))
     opcoes_camara = ["TODOS (Visão Estadual de Vereadores)"] + list(muns_dict.keys())
 
-    # Determinar município inicial
     idx_default = 0
     if nm_mun_selecionado and nm_mun_selecionado in opcoes_camara:
         idx_default = opcoes_camara.index(nm_mun_selecionado)
@@ -187,7 +186,7 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
             )
             fig.update_layout(height=360, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
             fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"plot_ver_mun_{ano}_{tab_origem}")
 
         with col_t:
             st.markdown(f"**Lista de Vereadores Eleitos: {mun_nome_display}**")
@@ -257,7 +256,7 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
             )
             fig.update_layout(height=420, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
             fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"plot_ver_pe_{ano}_{tab_origem}")
 
         with col_t:
             st.markdown(f"**Bancada Total de Vereadores ({ano})**")
@@ -270,8 +269,8 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
             df_table['% das Cadeiras'] = df_table['% das Cadeiras'].apply(fmt_pct)
             st.dataframe(df_table, use_container_width=True, hide_index=True)
 
-def _render_painel_alepe(ano: int):
-    """Renderiza a bancada oficial da ALEPE (49 deputados estaduais)."""
+def _render_painel_alepe(ano: int, tab_origem: str = "mun"):
+    """Renderiza a bancada oficial da ALEPE (49 deputados estaduais) de eleições concluídas."""
     df_est = get_eleitos_parlamentares(ano, 'deputado estadual')
     if len(df_est) == 0:
         st.info(f"Nenhum deputado estadual eleito disponível para o ano {ano}.")
@@ -315,7 +314,7 @@ def _render_painel_alepe(ano: int):
         )
         fig.update_layout(height=380, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
         fig.update_traces(textposition='outside')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"plot_alepe_{ano}_{tab_origem}")
 
     with col_t:
         st.markdown("**Quadro de Bancadas na ALEPE**")
@@ -337,8 +336,8 @@ def _render_painel_alepe(ano: int):
         })
         st.dataframe(df_nom[['Deputado(a) Eleito(a)', 'Partido', 'Número', 'Votação Total em PE']], use_container_width=True, hide_index=True)
 
-def _render_painel_federal(ano: int):
-    """Renderiza a bancada federal de PE (25 deputados federais)."""
+def _render_painel_federal(ano: int, tab_origem: str = "mun"):
+    """Renderiza a bancada federal de PE (25 deputados federais) de eleições concluídas."""
     df_fed = get_eleitos_parlamentares(ano, 'deputado federal')
     if len(df_fed) == 0:
         st.info(f"Nenhum deputado federal eleito disponível para o ano {ano}.")
@@ -382,7 +381,7 @@ def _render_painel_federal(ano: int):
         )
         fig.update_layout(height=380, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
         fig.update_traces(textposition='outside')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"plot_fed_{ano}_{tab_origem}")
 
     with col_t:
         st.markdown("**Quadro da Bancada Federal de PE**")
@@ -414,41 +413,28 @@ def render_painel_eleitos(
     tab_origem: str = "mun"
 ):
     """
-    Renderiza o quadro analítico completo de mandatos eleitos por partido:
-    - Prefeito: Prefeituras conquistadas no estado ou na macrorregião (com expander de vereadores).
-    - Vereador: Composição da Câmara Municipal selecionada ou visão estadual (com expander de prefeitos).
+    Renderiza o quadro analítico de mandatos eleitos por partido exclusivamente
+    para eleições já homologadas (ano <= 2024) e para os cargos pertinentes:
+    - Prefeito: Prefeituras conquistadas no estado ou por região.
+    - Vereador: Composição da Câmara Municipal selecionada ou visão estadual.
     - Deputado Estadual: Bancada oficial da ALEPE (49 deputados).
     - Deputado Federal: Bancada oficial de PE na Câmara Federal (25 deputados).
-    - Governador/Senador/Presidente: Bancadas eleitas da ALEPE e Câmara Federal do mesmo pleito.
     """
+    # 2026 é eleição projetada/futura: não há mandatos eleitos oficiais
+    if ano >= 2026:
+        return
+
+    # Cargos legislativos/executivos com mandatos partidários específicos
+    if cargo not in ["prefeito", "vereador", "deputado estadual", "deputado federal"]:
+        return
+
     st.markdown("---")
 
-    # 1. CARGO: PREFEITO
     if cargo == "prefeito":
         _render_painel_prefeitos(ano, df_mun_map, regiao_selecionada, tab_origem)
-        with st.expander(f"🗳️ Ver Composição das Câmaras de Vereadores ({ano})", expanded=False):
-            _render_painel_vereadores(ano, df_mun_map, cd_mun_selecionado, nm_mun_selecionado, regiao_selecionada, f"{tab_origem}_exp_ver")
-
-    # 2. CARGO: VEREADOR
     elif cargo == "vereador":
         _render_painel_vereadores(ano, df_mun_map, cd_mun_selecionado, nm_mun_selecionado, regiao_selecionada, tab_origem)
-        with st.expander(f"🏛️ Ver Prefeituras Conquistadas por Partido ({ano})", expanded=False):
-            _render_painel_prefeitos(ano, df_mun_map, regiao_selecionada, f"{tab_origem}_exp_pref")
-
-    # 3. CARGO: DEPUTADO ESTADUAL
     elif cargo == "deputado estadual":
-        _render_painel_alepe(ano)
-
-    # 4. CARGO: DEPUTADO FEDERAL
+        _render_painel_alepe(ano, tab_origem)
     elif cargo == "deputado federal":
-        _render_painel_federal(ano)
-
-    # 5. ELEIÇÕES GERAIS (GOVERNADOR, SENADOR, PRESIDENTE)
-    elif cargo in ["governador", "senador", "presidente"]:
-        st.markdown(f"### 🏛️ Força Parlamentar Eleita em PE — Eleições {ano}")
-        st.caption("Distribuição partidária das bancadas eleitas no pleito estadual (ALEPE e Câmara Federal).")
-        tab_alepe, tab_fed = st.tabs(["🏛️ ALEPE (49 Deputados Estaduais)", "🇧🇷 Bancada Federal de PE (25 Deputados)"])
-        with tab_alepe:
-            _render_painel_alepe(ano)
-        with tab_fed:
-            _render_painel_federal(ano)
+        _render_painel_federal(ano, tab_origem)
