@@ -94,6 +94,52 @@ def render_tab_matching_recife(df_meta, df_mun_map):
         "a lealdade territorial da chapa, sinergia de votos e riscos de vazamento / traição."
     )
 
+    # GUIA METODOLÓGICO E GLOSSÁRIO POLÍTICO
+    with st.expander("📖 Guia Metodológico & Glossário Político: O que é Descolamento Individual, Voto Casado e as 3 Visões?", expanded=False):
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            st.markdown(r"""
+            ##### 🏷️ Dicionário das Classificações Estratégicas
+            
+            * 🤝 **Aliança Plena / Voto Casado ($QL_1 \ge 1.0 \land QL_2 \ge 1.0 \land QL_3 \ge 1.0$):**  
+              *Território de força máxima e transferência perfeita.* Todos os 3 atores estão simultaneamente acima de suas médias no Recife. A dobradinha caminha integrada e arrasta a majoritária.
+            
+            * ⚠️ **Alerta de Vazamento / Descolamento ($QL_2 \ge 1.0 \land QL_3 \ge 1.0 \land QL_1 < 1.0$):**  
+              *Ponto crítico de atenção.* Ambos os parlamentares têm votação expressiva, mas o voto não chegou na candidatura majoritária. Indica potencial vazamento para concorrentes majoritários ou infidelidade na base comunitária.
+            
+            * 🚀 **Força Majoritária Autônoma ($QL_1 \ge 1.0 \land QL_2 < 1.0 \land QL_3 < 1.0$):**  
+              *Voto de opinião ou liderança carismática.* O candidato majoritário supera a média municipal sozinho, sem depender da estrutura eleitoral dos deputados.
+            
+            * 🎯 **Casamento Parcial 1 ou 2 ($QL_1 \ge 1.0$ e alinhamento com apenas 1 parlamentar):**  
+              *Sinergia assimétrica.* A majoritária casou votos com apenas um dos deputados da dobradinha, enquanto o outro não acompanhou o ritmo no território.
+            
+            * 🔄 **Descolamento Individual (Apenas um parlamentar com $QL \ge 1.0$, demais $< 1.0$):**  
+              *Bolsão eleitoral isolado / nicho pessoal.* O parlamentar possui uma base histórica ou paroquial concentrada naquele território, mas esse capital político fica retido: ele **não transfere votos para a majoritária** e **não carrega o parceiro de dobradinha**.
+            
+            * 🏜️ **Vácuo da Chapa ($QL_1 < 1.0 \land QL_2 < 1.0 \land QL_3 < 1.0$):**  
+              *Reduto da oposição.* Baixo desempenho conjunto para todos os membros do grupo político; território dominado por outras forças partidárias.
+            """)
+        with col_g2:
+            st.markdown(r"""
+            ##### 🗺️ As 3 Visões Territoriais (Views)
+            
+            * 🏘️ **Bairros Oficiais (94 Bairros do Recife):**  
+              Permite a análise socioespacial e de planejamento urbano da cidade. Ideal para identificar padrões entre morro e asfalto, zona norte e zona sul, e entender a penetração social de cada candidatura.
+            
+            * 🏫 **Colégios Eleitorais (416 Locais de Votação):**  
+              A escala microeleitoral no detalhe das escolas e seções de votação. Essencial para coordenações operacionais de campanha, alocação de fiscais de urna, cobrança de lideranças comunitárias e ações cirúrgicas de campo.
+            
+            * 🗳️ **Zonas Eleitorais (11 Zonas do Recife):**  
+              A escala cartorária e jurídica oficial do TRE-PE. Ideal para coordenação macroeleitoral, planejamento de carreatas, comícios zonais e articulação política regional.
+            
+            ---
+            ##### 📐 Como Ler os Quocientes (QL) & Métricas
+            * **Quociente Eleitoral Local (QL):** Normaliza o desempenho dividindo o percentual local pelo percentual médio no Recife ($QL = \%_{\text{local}} / \%_{\text{Recife}}$). Um valor de **1.0** indica desempenho idêntico à média da capital; **2.0** indica o dobro da média; abaixo de **1.0** indica votação abaixo do padrão municipal.
+            * **Score 3D:** Média geométrica ponderada ($\sqrt[3]{QL_1 \times QL_2 \times QL_3}$), sintetizando a intensidade conjunta da vitória dos três candidatos no território.
+            * **Sinergia da Dobradinha ($r_{23}$):** Correlação linear que mede se os deputados caminham juntos nos mesmos bairros ou se dividem o Recife em redutos separados.
+            * **Transferência Majoritária ($R^2$):** Porcentagem da variação dos votos do líder majoritário explicada pela presença combinada dos dois deputados.
+            """)
+
     # -------------------------------------------------------------
     # 1. SELEÇÃO DOS 3 NÍVEIS
     # -------------------------------------------------------------
@@ -300,7 +346,8 @@ def render_tab_matching_recife(df_meta, df_mun_map):
             "Nível de Agregação:",
             ["🏘️ Bairros Oficiais (94 Bairros)", "🏫 Colégios Eleitorais (416 Locais)", "🗳️ Zonas Eleitorais (11 Zonas)"],
             index=0,
-            key="m_rec_granul"
+            key="m_rec_granul",
+            help="Escolha a escala de observação: Bairros (análise sociodemográfica dos 94 bairros), Colégios (microeleitoral nas 416 escolas) ou Zonas Eleitorais (11 zonas do TRE-PE)."
         )
     with cf2:
         filtro_categ = st.selectbox(
@@ -316,7 +363,8 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                 "🔄 Descolamento Individual"
             ],
             index=0,
-            key="m_rec_filtro_categ"
+            key="m_rec_filtro_categ",
+            help="Filtre territórios pela tipologia política: Aliança Plena (força total), Alerta de Vazamento (risco para a majoritária), Força Autônoma, Descolamento Individual (bolsão isolado de apenas um deputado), etc."
         )
     with cf3:
         termo_busca = st.text_input("🔍 Buscar Território:", placeholder="Ex: Boa Viagem, Madalena, Zona 4, Escola...", key="m_rec_busca")
