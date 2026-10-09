@@ -23,17 +23,26 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
     gdf_zonas = load_zonas_gdf().copy()
     
     # Controles de Filtro, Critério e Busca Inteligente
-    c_f1, c_f2, c_f3 = st.columns([1.0, 1.3, 1.7])
+    c_f1, c_f2, c_f3, c_f4 = st.columns([1.1, 1.3, 1.2, 1.4])
     with c_f1:
-        rds_list = ["TODAS"] + sorted(gdf_zonas['REGIAO_DESENVOLVIMENTO'].unique().tolist())
+        rds_list = ["TODAS"] + sorted(gdf_zonas['REGIAO_DESENVOLVIMENTO'].dropna().unique().tolist())
         rd_sel = st.selectbox("Região:", rds_list, index=0, key="filtro_rd_zonas")
     with c_f2:
-        criterio_analise = st.radio("Critério:", ["Total de Votos (Nominais)", "Percentual (%)"], horizontal=True, key="crit_zonas")
+        if rd_sel != "TODAS":
+            muns_disponiveis = sorted(gdf_zonas[gdf_zonas['REGIAO_DESENVOLVIMENTO'] == rd_sel]['NM_MUN'].dropna().unique().tolist())
+        else:
+            muns_disponiveis = sorted(gdf_zonas['NM_MUN'].dropna().unique().tolist())
+        muns_list = ["TODOS"] + muns_disponiveis
+        mun_sel = st.selectbox("Município:", muns_list, index=0, key=f"filtro_mun_zonas_{rd_sel}")
     with c_f3:
-        busca_zona = st.text_input("🔍 Pesquisar Zona ou Município:", placeholder="Ex: 4, 149, Olinda, Recife...", key="busca_zona")
+        criterio_analise = st.radio("Critério:", ["Total de Votos (Nominais)", "Percentual (%)"], horizontal=True, key="crit_zonas")
+    with c_f4:
+        busca_zona = st.text_input("🔍 Pesquisar Zona:", placeholder="Ex: 4, 149, Olinda, Recife...", key="busca_zona")
         
     if rd_sel != "TODAS":
         gdf_zonas = gdf_zonas[gdf_zonas['REGIAO_DESENVOLVIMENTO'] == rd_sel]
+    if mun_sel != "TODOS":
+        gdf_zonas = gdf_zonas[gdf_zonas['NM_MUN'] == mun_sel]
         
     # 2. Obter votos por zona
     df_votos_z = get_votos_zonas(ano, turno, cargo, partido=p_sigla, numero_candidato=c_num)
@@ -136,14 +145,19 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
         bounds = gdf_merged.total_bounds
         center_lat = (bounds[1] + bounds[3]) / 2
         center_lon = (bounds[0] + bounds[2]) / 2
-        zoom = 8 if rd_sel != "TODAS" else 7
+        if mun_sel != "TODOS":
+            zoom = 11
+        elif rd_sel != "TODAS":
+            zoom = 8
+        else:
+            zoom = 7
         
         if busca_zona.strip() and len(df_view) == 1:
             z_bounds = df_view.iloc[0].geometry.bounds
             if len(z_bounds) == 4 and not any(pd.isna(z_bounds)):
                 center_lat = (z_bounds[1] + z_bounds[3]) / 2
                 center_lon = (z_bounds[0] + z_bounds[2]) / 2
-                zoom = 11
+                zoom = 12
         
         coluna_cor = "votos" if criterio_analise == "Total de Votos (Nominais)" else "pct_votos"
         legenda_mapa = f"Total de Votos de {alvo_nome}" if criterio_analise == "Total de Votos (Nominais)" else f"% Votos de {alvo_nome}"
