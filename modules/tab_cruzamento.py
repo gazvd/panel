@@ -4,28 +4,28 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from config import PATH_RESULTADOS, PATH_LOCAIS_PARQUET, fmt_int, fmt_pct, get_cores_foco, normalize_text
+from config import PATH_RESULTADOS, PATH_LOCAIS_PARQUET, PRESIDENTES_NOMES, fmt_int, fmt_pct, get_cores_foco, normalize_text
 from modules.geo_loader import load_municipios_gdf, load_regioes_gdf
 
-PRESIDENTES_NOMES = {
-    (2022, "PT"): "Lula",
-    (2022, "PL"): "Jair Bolsonaro",
-    (2022, "PDT"): "Ciro Gomes",
-    (2022, "MDB"): "Simone Tebet",
-    (2022, "UNIÃO"): "Soraya Thronicke",
-    (2022, "NOVO"): "Felipe d'Avila",
-    (2018, "PSL"): "Jair Bolsonaro",
-    (2018, "PT"): "Fernando Haddad",
-    (2018, "PDT"): "Ciro Gomes",
-    (2018, "PSDB"): "Geraldo Alckmin",
-    (2018, "NOVO"): "João Amoêdo",
-    (2014, "PT"): "Dilma Rousseff",
-    (2014, "PSDB"): "Aécio Neves",
-    (2014, "PSB"): "Marina Silva",
-    (2010, "PT"): "Dilma Rousseff",
-    (2010, "PSDB"): "José Serra",
-    (2010, "PV"): "Marina Silva"
-}
+@st.cache_data(ttl=3600)
+def get_opcoes_partidos_cruzamento(ano: int, turno: int, cargo: str):
+    """Retorna a soma de votos por legenda/partido para o cargo e pleito selecionado."""
+    con = duckdb.connect()
+    res_path = str(PATH_RESULTADOS).replace("\\", "/")
+    q = f"""
+        SELECT sigla_partido, SUM(total_votos) as total_votos
+        FROM '{res_path}'
+        WHERE ano = {ano} AND turno = {turno} AND cargo = '{cargo}' AND sigla_partido IS NOT NULL
+        GROUP BY sigla_partido
+        ORDER BY total_votos DESC
+    """
+    df = con.execute(q).df()
+    if len(df) == 0:
+        return pd.DataFrame(columns=['sigla_partido', 'total_votos', 'numero_candidato', 'nome_urna', 'label'])
+    df['numero_candidato'] = None
+    df['nome_urna'] = df['sigla_partido'].apply(lambda s: f"{s} (Partido)")
+    df['label'] = df.apply(lambda r: f"🚩 {r['sigla_partido']} (Total Partido) - {fmt_int(r['total_votos'])} votos", axis=1)
+    return df
 
 @st.cache_data(ttl=3600)
 def get_opcoes_candidatos_cruzamento(ano: int, turno: int, cargo: str):
@@ -53,7 +53,7 @@ def get_opcoes_candidatos_cruzamento(ano: int, turno: int, cargo: str):
             WHERE ano = {ano} AND turno = {turno} AND cargo = '{cargo}' AND numero_candidato IS NOT NULL
             GROUP BY numero_candidato, nome_urna, sigla_partido
             ORDER BY total_votos DESC
-            LIMIT 100
+            LIMIT 200
         """
         df = con.execute(q).df()
         df['label'] = df.apply(lambda r: f"{r['nome_urna']} ({r['sigla_partido']}) - {fmt_int(r['total_votos'])} votos", axis=1)
@@ -62,76 +62,136 @@ def get_opcoes_candidatos_cruzamento(ano: int, turno: int, cargo: str):
 def render_tab_cruzamento(df_meta, df_mun_map):
     st.markdown("### 🔗 Cruzamento Eleitoral & Análise de Dobradinhas")
     st.caption(
-        "Compare o comportamento territorial de dois candidatos ou pleitos com normalização por **Quociente Eleitoral (QL)**, "
-        "correlação de movimento e a **Matriz Estratégica dos 4 Quadrantes Politicos**."
+        "Compare o comportamento territorial de dois candidatos ou partidos com normalização por **Quociente Eleitoral (QL)**, "
+        "correlação de movimento e a **Matriz Estratégica dos 4 Quadrantes Políticos**."
     )
     
-    # --- 1. CONFIGURAÇÃO DOS CANDIDATOS (A e B) ---
+    # --- 1. CONFIGURAÇÃO DAS OPÇÕES (A e B) ---
     c_box_a, c_box_b = st.columns(2)
     
     with c_box_a:
-        st.markdown("#### 🔵 Candidato A (Referência / Eixo X)")
+        st.markdown("#### 🔵 Opção A (Referência / Eixo X)")
         ca1, ca2, ca3 = st.columns([1, 1.4, 1])
         with ca1:
             anos_a = sorted(df_meta['ano'].unique(), reverse=True)
-            default_ano_a = anos_a.index(2022) if 2022 in anos_a else 0
+            default_ano_a = anos_a.index(2026) if 2026 in anos_a else (anos_a.index(2022) if 2022 in anos_a else 0)
             ano_a = st.selectbox("Ano A:", anos_a, index=default_ano_a, key="ano_a_cruz")
         with ca2:
             cargos_a = sorted(df_meta[df_meta['ano'] == ano_a]['cargo'].unique())
-            default_cg_a = cargos_a.index("deputado federal") if "deputado federal" in cargos_a else 0
+            default_cg_a = cargos_a.index("governador") if "governador" in cargos_a else (cargos_a.index("deputado federal") if "deputado federal" in cargos_a else 0)
             cargo_a = st.selectbox("Cargo A:", cargos_a, index=default_cg_a, key="cg_a_cruz")
         with ca3:
             turnos_a = sorted(df_meta[(df_meta['ano'] == ano_a) & (df_meta['cargo'] == cargo_a)]['turno'].unique())
-            turno_a = st.selectbox("Turno A:", turnos_a, index=0, key="t_a_cruz")
+            default_t_a = turnos_a.index(1) if 1 in turnos_a else 0
+            turno_a = st.selectbox("Turno A:", turnos_a, index=default_t_a, key="t_a_cruz")
             
-        df_cands_a = get_opcoes_candidatos_cruzamento(ano_a, turno_a, cargo_a)
-        if len(df_cands_a) > 0:
-            labels_a = df_cands_a['label'].tolist()
-            cand_idx_a = st.selectbox(
-                "Selecione o Candidato A:",
-                range(len(labels_a)),
-                format_func=lambda i: labels_a[i] if i < len(labels_a) else "",
-                key=f"sel_cand_a_{ano_a}_{cargo_a}_{turno_a}"
-            )
-            cand_idx_a = min(max(0, cand_idx_a), len(df_cands_a) - 1)
-            info_a = df_cands_a.iloc[cand_idx_a]
+        tipo_a = st.radio(
+            "Analisar A por:",
+            ["👤 Candidato", "🚩 Soma do Partido"],
+            horizontal=True,
+            key=f"tipo_a_{ano_a}_{cargo_a}_{turno_a}"
+        )
+        is_partido_a = "Partido" in tipo_a
+
+        if is_partido_a:
+            df_itens_a = get_opcoes_partidos_cruzamento(ano_a, turno_a, cargo_a)
+            lbl_select_a = "Selecione o Partido A:"
         else:
-            st.warning(f"Nenhum candidato encontrado para {cargo_a.title()} em {ano_a}.")
+            df_itens_a = get_opcoes_candidatos_cruzamento(ano_a, turno_a, cargo_a)
+            lbl_select_a = "Selecione o Candidato A:"
+
+        if len(df_itens_a) > 0:
+            labels_a = df_itens_a['label'].tolist()
+            default_idx_a = 0
+            if not is_partido_a:
+                for i, r in df_itens_a.iterrows():
+                    if "JOAO CAMPOS" in normalize_text(r['nome_urna']):
+                        default_idx_a = i
+                        break
+            else:
+                for i, r in df_itens_a.iterrows():
+                    if r['sigla_partido'] == "PSB":
+                        default_idx_a = i
+                        break
+
+            item_idx_a = st.selectbox(
+                lbl_select_a,
+                range(len(labels_a)),
+                index=default_idx_a,
+                format_func=lambda i: labels_a[i] if i < len(labels_a) else "",
+                key=f"sel_item_a_{ano_a}_{cargo_a}_{turno_a}_{tipo_a}"
+            )
+            item_idx_a = min(max(0, item_idx_a), len(df_itens_a) - 1)
+            info_a = df_itens_a.iloc[item_idx_a]
+        else:
+            st.warning(f"Nenhum registro encontrado para {cargo_a.title()} em {ano_a}.")
             return
 
     with c_box_b:
-        st.markdown("#### 🟣 Candidato B (Comparado / Eixo Y)")
+        st.markdown("#### 🟣 Opção B (Comparado / Eixo Y)")
         cb1, cb2, cb3 = st.columns([1, 1.4, 1])
         with cb1:
             anos_b = sorted(df_meta['ano'].unique(), reverse=True)
-            default_ano_b = anos_b.index(2022) if 2022 in anos_b else 0
+            default_ano_b = anos_b.index(2026) if 2026 in anos_b else (anos_b.index(2022) if 2022 in anos_b else 0)
             ano_b = st.selectbox("Ano B:", anos_b, index=default_ano_b, key="ano_b_cruz")
         with cb2:
             cargos_b = sorted(df_meta[df_meta['ano'] == ano_b]['cargo'].unique())
-            default_cg_b = cargos_b.index("governador") if "governador" in cargos_b else 0
+            default_cg_b = cargos_b.index("presidente") if "presidente" in cargos_b else (cargos_b.index("governador") if "governador" in cargos_b else 0)
             cargo_b = st.selectbox("Cargo B:", cargos_b, index=default_cg_b, key="cg_b_cruz")
         with cb3:
             turnos_b = sorted(df_meta[(df_meta['ano'] == ano_b) & (df_meta['cargo'] == cargo_b)]['turno'].unique())
-            turno_b = st.selectbox("Turno B:", turnos_b, index=0, key="t_b_cruz")
-            
-        df_cands_b = get_opcoes_candidatos_cruzamento(ano_b, turno_b, cargo_b)
-        if len(df_cands_b) > 0:
-            labels_b = df_cands_b['label'].tolist()
-            cand_idx_b = st.selectbox(
-                "Selecione o Candidato B:",
-                range(len(labels_b)),
-                format_func=lambda i: labels_b[i] if i < len(labels_b) else "",
-                key=f"sel_cand_b_{ano_b}_{cargo_b}_{turno_b}"
-            )
-            cand_idx_b = min(max(0, cand_idx_b), len(df_cands_b) - 1)
-            info_b = df_cands_b.iloc[cand_idx_b]
+            default_t_b = turnos_b.index(1) if 1 in turnos_b else 0
+            turno_b = st.selectbox("Turno B:", turnos_b, index=default_t_b, key="t_b_cruz")
+
+        tipo_b = st.radio(
+            "Analisar B por:",
+            ["👤 Candidato", "🚩 Soma do Partido"],
+            horizontal=True,
+            key=f"tipo_b_{ano_b}_{cargo_b}_{turno_b}"
+        )
+        is_partido_b = "Partido" in tipo_b
+
+        if is_partido_b:
+            df_itens_b = get_opcoes_partidos_cruzamento(ano_b, turno_b, cargo_b)
+            lbl_select_b = "Selecione o Partido B:"
         else:
-            st.warning(f"Nenhum candidato encontrado para {cargo_b.title()} em {ano_b}.")
+            df_itens_b = get_opcoes_candidatos_cruzamento(ano_b, turno_b, cargo_b)
+            lbl_select_b = "Selecione o Candidato B:"
+
+        if len(df_itens_b) > 0:
+            labels_b = df_itens_b['label'].tolist()
+            default_idx_b = 0
+            if not is_partido_b:
+                for i, r in df_itens_b.iterrows():
+                    if "LULA" in normalize_text(r['nome_urna']):
+                        default_idx_b = i
+                        break
+            else:
+                for i, r in df_itens_b.iterrows():
+                    if r['sigla_partido'] == "PT":
+                        default_idx_b = i
+                        break
+
+            item_idx_b = st.selectbox(
+                lbl_select_b,
+                range(len(labels_b)),
+                index=default_idx_b,
+                format_func=lambda i: labels_b[i] if i < len(labels_b) else "",
+                key=f"sel_item_b_{ano_b}_{cargo_b}_{turno_b}_{tipo_b}"
+            )
+            item_idx_b = min(max(0, item_idx_b), len(df_itens_b) - 1)
+            info_b = df_itens_b.iloc[item_idx_b]
+        else:
+            st.warning(f"Nenhum registro encontrado para {cargo_b.title()} em {ano_b}.")
             return
 
-    # Cores personalizadas para os candidatos
-    cor_a, _, _ = get_cores_foco(info_a['nome_urna'], info_a['sigla_partido'])
-    cor_b, _, _ = get_cores_foco(info_b['nome_urna'], info_b['sigla_partido'])
+    # Nomes para exibição gráfica
+    nome_a = f"{info_a['sigla_partido']} (Partido)" if is_partido_a else info_a['nome_urna']
+    nome_b = f"{info_b['sigla_partido']} (Partido)" if is_partido_b else info_b['nome_urna']
+
+    # Cores personalizadas para os candidatos / partidos
+    cor_a, _, _ = get_cores_foco(nome_a, info_a['sigla_partido'])
+    cor_b, _, _ = get_cores_foco(nome_b, info_b['sigla_partido'])
     if cor_a.lower() == cor_b.lower():
         cor_a = "#2980B9"  # Azul Cobalto
         cor_b = "#8E44AD"  # Roxo
@@ -170,15 +230,17 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     res_path = str(PATH_RESULTADOS).replace("\\", "/")
     locais_path = str(PATH_LOCAIS_PARQUET).replace("\\", "/")
 
-    # Filtro Candidato A
-    if cargo_a == "presidente" or pd.isna(info_a['numero_candidato']):
-        filtro_item_a = f"sigla_partido = '{info_a['sigla_partido']}'"
+    # Filtro Opção A
+    if is_partido_a or cargo_a == "presidente" or pd.isna(info_a['numero_candidato']):
+        sigla_a_safe = str(info_a['sigla_partido']).replace("'", "''")
+        filtro_item_a = f"sigla_partido = '{sigla_a_safe}'"
     else:
         filtro_item_a = f"numero_candidato = {int(float(info_a['numero_candidato']))}"
 
-    # Filtro Candidato B
-    if cargo_b == "presidente" or pd.isna(info_b['numero_candidato']):
-        filtro_item_b = f"sigla_partido = '{info_b['sigla_partido']}'"
+    # Filtro Opção B
+    if is_partido_b or cargo_b == "presidente" or pd.isna(info_b['numero_candidato']):
+        sigla_b_safe = str(info_b['sigla_partido']).replace("'", "''")
+        filtro_item_b = f"sigla_partido = '{sigla_b_safe}'"
     else:
         filtro_item_b = f"numero_candidato = {int(float(info_b['numero_candidato']))}"
 
@@ -348,9 +410,9 @@ def render_tab_cruzamento(df_meta, df_mun_map):
         if r['ql_a'] >= 1.0 and r['ql_b'] >= 1.0:
             return "🤝 Dobradinha Fiel (Ambos Acima da Média)"
         elif r['ql_a'] < 1.0 and r['ql_b'] >= 1.0:
-            return f"⚡ Reduto de {info_b['nome_urna']} (B Forte / A Fraco)"
+            return f"⚡ Reduto de {nome_b} (B Forte / A Fraco)"
         elif r['ql_a'] >= 1.0 and r['ql_b'] < 1.0:
-            return f"🚀 Reduto de {info_a['nome_urna']} (A Forte / B Fraco)"
+            return f"🚀 Reduto de {nome_a} (A Forte / B Fraco)"
         else:
             return "🏜️ Vácuo Eleitoral (Ambos Abaixo da Média)"
 
@@ -358,14 +420,14 @@ def render_tab_cruzamento(df_meta, df_mun_map):
 
     # Cores fixas da Matriz Estratégica
     lbl_dobradinha = "🤝 Dobradinha Fiel (Ambos Acima da Média)"
-    lbl_reduto_b = f"⚡ Reduto de {info_b['nome_urna']} (B Forte / A Fraco)"
-    lbl_reduto_a = f"🚀 Reduto de {info_a['nome_urna']} (A Forte / B Fraco)"
+    lbl_reduto_b = f"⚡ Reduto de {nome_b} (B Forte / A Fraco)"
+    lbl_reduto_a = f"🚀 Reduto de {nome_a} (A Forte / B Fraco)"
     lbl_vacuo = "🏜️ Vácuo Eleitoral (Ambos Abaixo da Média)"
 
     cores_quadrantes = {
         lbl_dobradinha: "#27AE60",   # Verde Esmeralda
-        lbl_reduto_a: cor_a,         # Cor do Candidato A
-        lbl_reduto_b: cor_b,         # Cor do Candidato B
+        lbl_reduto_a: cor_a,         # Cor da Opção A
+        lbl_reduto_b: cor_b,         # Cor da Opção B
         lbl_vacuo: "#95A5A6"         # Cinza
     }
 
@@ -391,7 +453,7 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     if taxa_divergencia >= 50.0 or corr_pearson <= -0.20:
         diag_badge = "🔴 Antagonismo Territorial / Eleitorados Concorrentes"
         diag_desc = (
-            f"As bases eleitorais de {info_a['nome_urna']} e {info_b['nome_urna']} operam em direções opostas. "
+            f"As bases eleitorais de {nome_a} e {nome_b} operam em direções opostas. "
             f"Em **{taxa_divergencia:.1f}%** das praças analisadas, o fortalecimento de um coincide com o enfraquecimento do outro. "
             f"A correlação linear de votos é negativa ({corr_pearson:+.2f})."
         )
@@ -411,7 +473,7 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     else:
         diag_badge = "⚪ Campanhas Descoladas / Eleitorados Independentes"
         diag_desc = (
-            f"Correlação próxima de zero ({corr_pearson:+.2f}). A distribuição de votos dos candidatos é autônoma, "
+            f"Correlação próxima de zero ({corr_pearson:+.2f}). A distribuição de votos é autônoma, "
             f"sem alinhamento sistemático nem disputa predatória evidente no mapa."
         )
 
@@ -455,15 +517,15 @@ def render_tab_cruzamento(df_meta, df_mun_map):
         y_col = 'ql_b'
         x_ref = 1.0
         y_ref = 1.0
-        x_titulo = f"Desempenho Relativo ({info_a['nome_urna']}) [1.0x = Média]"
-        y_titulo = f"Desempenho Relativo ({info_b['nome_urna']}) [1.0x = Média]"
+        x_titulo = f"Desempenho Relativo ({nome_a}) [1.0x = Média]"
+        y_titulo = f"Desempenho Relativo ({nome_b}) [1.0x = Média]"
     else:
         x_col = 'pct_a'
         y_col = 'pct_b'
         x_ref = media_a
         y_ref = media_b
-        x_titulo = f"% Votos Válidos: {info_a['nome_urna']} (Média: {fmt_pct(media_a)})"
-        y_titulo = f"% Votos Válidos: {info_b['nome_urna']} (Média: {fmt_pct(media_b)})"
+        x_titulo = f"% Votos Válidos: {nome_a} (Média: {fmt_pct(media_a)})"
+        y_titulo = f"% Votos Válidos: {nome_b} (Média: {fmt_pct(media_b)})"
 
     with c_graf1:
         st.markdown("#### 🎯 Matriz Política dos 4 Quadrantes")
@@ -495,12 +557,12 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             },
             labels={
                 'quadrante': 'Classificação Estratégica',
-                'votos_a': f'Votos Nominais ({info_a["nome_urna"]})',
-                'pct_a': f'% Válidos ({info_a["nome_urna"]})',
-                'ql_a': f'Múltiplo da Média ({info_a["nome_urna"]})',
-                'votos_b': f'Votos Nominais ({info_b["nome_urna"]})',
-                'pct_b': f'% Válidos ({info_b["nome_urna"]})',
-                'ql_b': f'Múltiplo da Média ({info_b["nome_urna"]})',
+                'votos_a': f'Votos ({nome_a})',
+                'pct_a': f'% Válidos ({nome_a})',
+                'ql_a': f'Múltiplo da Média ({nome_a})',
+                'votos_b': f'Votos ({nome_b})',
+                'pct_b': f'% Válidos ({nome_b})',
+                'ql_b': f'Múltiplo da Média ({nome_b})',
                 'score_sinergia': 'Score de Sinergia (QL_A × QL_B)',
                 'regiao': 'Região de Desenvolvimento'
             }
@@ -559,7 +621,7 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             x=top_casados['ql_a'],
             text=top_casados['texto_barra_a'],
             textposition='auto',
-            name=f"{info_a['nome_urna']} (x Média)",
+            name=f"{nome_a} (x Média)",
             orientation='h',
             marker=dict(color=cor_a)
         ))
@@ -568,7 +630,7 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             x=top_casados['ql_b'],
             text=top_casados['texto_barra_b'],
             textposition='auto',
-            name=f"{info_b['nome_urna']} (x Média)",
+            name=f"{nome_b} (x Média)",
             orientation='h',
             marker=dict(color=cor_b)
         ))
@@ -593,8 +655,8 @@ def render_tab_cruzamento(df_meta, df_mun_map):
         st.success(
             f"🤝 **Maior Casamento / Sinergia**\n\n"
             f"**{top1['unidade']}**\n\n"
-            f"• {info_a['nome_urna']}: **{fmt_pct(top1['pct_a'])}** ({top1['ql_a']:.2f}x média)\n\n"
-            f"• {info_b['nome_urna']}: **{fmt_pct(top1['pct_b'])}** ({top1['ql_b']:.2f}x média)\n\n"
+            f"• {nome_a}: **{fmt_pct(top1['pct_a'])}** ({top1['ql_a']:.2f}x média)\n\n"
+            f"• {nome_b}: **{fmt_pct(top1['pct_b'])}** ({top1['ql_b']:.2f}x média)\n\n"
             f"• Sinergia Conjunta: **{top1['score_sinergia']:.2f} pts**"
         )
 
@@ -602,10 +664,10 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     top_bast_a = df_cruz.sort_values('descompasso_ql', ascending=False).iloc[0]
     with d2:
         st.info(
-            f"🚀 **Fortaleza Exclusiva de {info_a['nome_urna']}**\n\n"
+            f"🚀 **Fortaleza Exclusiva de {nome_a}**\n\n"
             f"**{top_bast_a['unidade']}**\n\n"
-            f"• {info_a['nome_urna']}: **{fmt_pct(top_bast_a['pct_a'])}** ({top_bast_a['ql_a']:.2f}x média)\n\n"
-            f"• {info_b['nome_urna']}: **{fmt_pct(top_bast_a['pct_b'])}** ({top_bast_a['ql_b']:.2f}x média)\n\n"
+            f"• {nome_a}: **{fmt_pct(top_bast_a['pct_a'])}** ({top_bast_a['ql_a']:.2f}x média)\n\n"
+            f"• {nome_b}: **{fmt_pct(top_bast_a['pct_b'])}** ({top_bast_a['ql_b']:.2f}x média)\n\n"
             f"• Vantagem Relativa: **+{top_bast_a['descompasso_ql']:.2f}x**"
         )
 
@@ -613,10 +675,10 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     top_bast_b = df_cruz.sort_values('descompasso_ql', ascending=True).iloc[0]
     with d3:
         st.warning(
-            f"⚡ **Fortaleza Exclusiva de {info_b['nome_urna']}**\n\n"
+            f"⚡ **Fortaleza Exclusiva de {nome_b}**\n\n"
             f"**{top_bast_b['unidade']}**\n\n"
-            f"• {info_b['nome_urna']}: **{fmt_pct(top_bast_b['pct_b'])}** ({top_bast_b['ql_b']:.2f}x média)\n\n"
-            f"• {info_a['nome_urna']}: **{fmt_pct(top_bast_b['pct_a'])}** ({top_bast_b['ql_a']:.2f}x média)\n\n"
+            f"• {nome_b}: **{fmt_pct(top_bast_b['pct_b'])}** ({top_bast_b['ql_b']:.2f}x média)\n\n"
+            f"• {nome_a}: **{fmt_pct(top_bast_b['pct_a'])}** ({top_bast_a['ql_a']:.2f}x média)\n\n"
             f"• Vantagem Relativa: **+{-top_bast_b['descompasso_ql']:.2f}x**"
         )
 
@@ -629,8 +691,8 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             help="Mostra a contagem de territórios onde ambos superam suas médias vs onde caminham em sentidos opostos."
         )
         st.caption(
-            f"• **{n_reduto_a}** redutos só de {info_a['nome_urna']}\n\n"
-            f"• **{n_reduto_b}** redutos só de {info_b['nome_urna']}\n\n"
+            f"• **{n_reduto_a}** redutos só de {nome_a}\n\n"
+            f"• **{n_reduto_b}** redutos só de {nome_b}\n\n"
             f"• **{n_vacuo}** cidades com ambos fracos"
         )
 
@@ -664,12 +726,12 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             'unidade': 'Unidade Territorial',
             'regiao': 'Região de Desenvolvimento',
             'quadrante': 'Quadrante Estratégico',
-            'Votos A': f'Votos ({info_a["nome_urna"]})',
-            '% Votos A': f'% ({info_a["nome_urna"]})',
-            'Desempenho A (QL)': f'Múltiplo ({info_a["nome_urna"]})',
-            'Votos B': f'Votos ({info_b["nome_urna"]})',
-            '% Votos B': f'% ({info_b["nome_urna"]})',
-            'Desempenho B (QL)': f'Múltiplo ({info_b["nome_urna"]})',
+            'Votos A': f'Votos ({nome_a})',
+            '% Votos A': f'% ({nome_a})',
+            'Desempenho A (QL)': f'Múltiplo ({nome_a})',
+            'Votos B': f'Votos ({nome_b})',
+            '% Votos B': f'% ({nome_b})',
+            'Desempenho B (QL)': f'Múltiplo ({nome_b})',
             'Sinergia (Score)': 'Score Sinergia'
         }),
         use_container_width=True,
@@ -681,6 +743,6 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     st.download_button(
         label="📥 Exportar Dados do Cruzamento (.CSV)",
         data=csv_bytes,
-        file_name=f"cruzamento_{normalize_text(info_a['nome_urna'])}_{normalize_text(info_b['nome_urna'])}.csv",
+        file_name=f"cruzamento_{normalize_text(nome_a)}_{normalize_text(nome_b)}.csv",
         mime="text/csv"
     )
