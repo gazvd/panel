@@ -86,10 +86,17 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             
         df_cands_a = get_opcoes_candidatos_cruzamento(ano_a, turno_a, cargo_a)
         if len(df_cands_a) > 0:
-            cand_idx_a = st.selectbox("Selecione o Candidato A:", range(len(df_cands_a)), format_func=lambda i: df_cands_a.iloc[i]['label'], key="sel_cand_a")
+            labels_a = df_cands_a['label'].tolist()
+            cand_idx_a = st.selectbox(
+                "Selecione o Candidato A:",
+                range(len(labels_a)),
+                format_func=lambda i: labels_a[i] if i < len(labels_a) else "",
+                key=f"sel_cand_a_{ano_a}_{cargo_a}_{turno_a}"
+            )
+            cand_idx_a = min(max(0, cand_idx_a), len(df_cands_a) - 1)
             info_a = df_cands_a.iloc[cand_idx_a]
         else:
-            st.warning("Nenhum candidato encontrado para a Seleção A.")
+            st.warning(f"Nenhum candidato encontrado para {cargo_a.title()} em {ano_a}.")
             return
 
     with c_box_b:
@@ -109,10 +116,17 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             
         df_cands_b = get_opcoes_candidatos_cruzamento(ano_b, turno_b, cargo_b)
         if len(df_cands_b) > 0:
-            cand_idx_b = st.selectbox("Selecione o Candidato B:", range(len(df_cands_b)), format_func=lambda i: df_cands_b.iloc[i]['label'], key="sel_cand_b")
+            labels_b = df_cands_b['label'].tolist()
+            cand_idx_b = st.selectbox(
+                "Selecione o Candidato B:",
+                range(len(labels_b)),
+                format_func=lambda i: labels_b[i] if i < len(labels_b) else "",
+                key=f"sel_cand_b_{ano_b}_{cargo_b}_{turno_b}"
+            )
+            cand_idx_b = min(max(0, cand_idx_b), len(df_cands_b) - 1)
             info_b = df_cands_b.iloc[cand_idx_b]
         else:
-            st.warning("Nenhum candidato encontrado para a Seleção B.")
+            st.warning(f"Nenhum candidato encontrado para {cargo_b.title()} em {ano_b}.")
             return
 
     # Cores personalizadas para os candidatos
@@ -157,16 +171,16 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     locais_path = str(PATH_LOCAIS_PARQUET).replace("\\", "/")
 
     # Filtro Candidato A
-    if cargo_a == "presidente":
+    if cargo_a == "presidente" or pd.isna(info_a['numero_candidato']):
         filtro_item_a = f"sigla_partido = '{info_a['sigla_partido']}'"
     else:
-        filtro_item_a = f"numero_candidato = {int(info_a['numero_candidato'])}"
+        filtro_item_a = f"numero_candidato = {int(float(info_a['numero_candidato']))}"
 
     # Filtro Candidato B
-    if cargo_b == "presidente":
+    if cargo_b == "presidente" or pd.isna(info_b['numero_candidato']):
         filtro_item_b = f"sigla_partido = '{info_b['sigla_partido']}'"
     else:
-        filtro_item_b = f"numero_candidato = {int(info_b['numero_candidato'])}"
+        filtro_item_b = f"numero_candidato = {int(float(info_b['numero_candidato']))}"
 
     # Carregar dados com base no nível territorial
     with st.spinner("Calculando cruzamento territorial e métricas de sinergia..."):
@@ -367,8 +381,10 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     taxa_divergencia = (n_divergentes / total_unidades) * 100.0 if total_unidades > 0 else 0.0
 
     # Correlações Estatísticas
-    corr_pearson = float(df_cruz['pct_a'].corr(df_cruz['pct_b'], method='pearson'))
-    corr_spearman = float(df_cruz['pct_a'].corr(df_cruz['pct_b'], method='spearman'))
+    val_pearson = df_cruz['pct_a'].corr(df_cruz['pct_b'], method='pearson')
+    corr_pearson = float(val_pearson) if pd.notna(val_pearson) else 0.0
+    val_spearman = df_cruz['pct_a'].corr(df_cruz['pct_b'], method='spearman')
+    corr_spearman = float(val_spearman) if pd.notna(val_spearman) else 0.0
     r2 = (corr_pearson ** 2) * 100.0
 
     # Diagnóstico Político Estratégico
@@ -498,18 +514,21 @@ def render_tab_cruzamento(df_meta, df_mun_map):
         x_vals = df_cruz[x_col].values
         y_vals = df_cruz[y_col].values
         if len(df_cruz) > 1 and np.std(x_vals) > 0 and np.std(y_vals) > 0:
-            m_slope, b_intercept = np.polyfit(x_vals, y_vals, 1)
-            x_line = np.linspace(x_vals.min(), x_vals.max(), 50)
-            y_line = m_slope * x_line + b_intercept
-            fig_scatter.add_trace(
-                go.Scatter(
-                    x=x_line,
-                    y=y_line,
-                    mode='lines',
-                    name='Tendência (Regressão)',
-                    line=dict(color='#2C3E50', dash='dot', width=2)
+            try:
+                m_slope, b_intercept = np.polyfit(x_vals, y_vals, 1)
+                x_line = np.linspace(x_vals.min(), x_vals.max(), 50)
+                y_line = m_slope * x_line + b_intercept
+                fig_scatter.add_trace(
+                    go.Scatter(
+                        x=x_line,
+                        y=y_line,
+                        mode='lines',
+                        name='Tendência (Regressão)',
+                        line=dict(color='#2C3E50', dash='dot', width=2)
+                    )
                 )
-            )
+            except Exception:
+                pass
 
         # Rótulos dos Quadrantes
         max_x = df_cruz[x_col].max()
