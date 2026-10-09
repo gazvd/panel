@@ -63,34 +63,51 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
             elif len(df_view) == 0:
                 st.warning(f"Nenhum município encontrado com o termo '{busca_mun}'.")
 
-        # Placar de vitórias
-        venc_counts = df_view['vencedor'].value_counts()
+        # Placar de vitórias e Filtro Clicável por Vencedor
+        df_view_base = df_view.copy()
+        venc_counts = df_view_base['vencedor'].value_counts()
         lider_cand = venc_counts.index[0] if len(venc_counts) > 0 else "-"
         lider_vitorias = venc_counts.iloc[0] if len(venc_counts) > 0 else 0
 
-        df_s_margem = df_view.sort_values('margem_pct', ascending=False)
+        df_s_margem = df_view_base.sort_values('margem_pct', ascending=False)
         top_margem = df_s_margem.iloc[0] if len(df_s_margem) > 0 else None
         menor_margem = df_s_margem.iloc[-1] if len(df_s_margem) > 0 else None
 
         # KPIs
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Municípios Analisados", f"{len(df_view)}")
+        col1.metric("Municípios Analisados", f"{len(df_view_base)}")
         col2.metric("Líder em Vitórias", f"{lider_cand} ({lider_vitorias} mun.)" if lider_cand != "-" else "-")
         col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['NM_MUN']})" if top_margem is not None else "-")
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['NM_MUN']})" if menor_margem is not None else "-")
 
-        # Badges do Placar
-        badges = []
-        for cand, cnt in venc_counts.items():
-            bg_c = get_cores_foco(cand)[0]
-            fg_c = get_contrast_color(bg_c)
-            badges.append(
-                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-                f"{cand}: {cnt} {'cidade' if cnt == 1 else 'cidades'} ({cnt/len(df_view)*100:.1f}%)"
-                f"</span>"
-            )
-        placar_html = " ".join(badges)
-        st.markdown(f"**Placar de Cidades Conquistadas:** {placar_html}", unsafe_allow_html=True)
+        # Filtro Clicável: Placar de Cidades Conquistadas (st.pills)
+        cand_part_map = dict(zip(df_view_base['vencedor'], df_view_base['partido_vencedor']))
+        opcoes_pills = ["TODOS"] + list(venc_counts.index)
+
+        def format_pill_cand(cand):
+            if cand == "TODOS":
+                return f"🌐 TODOS ({len(df_view_base)} mun.)"
+            cnt = venc_counts.get(cand, 0)
+            pct = 100.0 * cnt / len(df_view_base) if len(df_view_base) > 0 else 0
+            part = cand_part_map.get(cand, "")
+            part_str = f" ({part})" if part and part != '-' else ""
+            return f"{cand}{part_str}: {cnt} ({pct:.1f}%)"
+
+        cand_filtro_clique = st.pills(
+            "🏆 Placar de Cidades Conquistadas (Clique no candidato para isolar seus municípios no mapa e resultados):",
+            options=opcoes_pills,
+            default="TODOS",
+            format_func=format_pill_cand,
+            key=f"pill_venc_mun_{ano}_{cargo}_{turno}_{rd_filtro}"
+        )
+
+        # Se um candidato for selecionado, filtrar df_view para as cidades dele
+        if cand_filtro_clique and cand_filtro_clique != "TODOS":
+            df_view = df_view_base[df_view_base['vencedor'] == cand_filtro_clique].copy()
+            st.info(f"🎯 **Filtro Ativo:** Exibindo os **{len(df_view)} municípios** conquistados por **{cand_filtro_clique} ({cand_part_map.get(cand_filtro_clique, '')})**. Clique em 'TODOS' para ver o mapa geral com todos os concorrentes.")
+        else:
+            df_view = df_view_base.copy()
+
         st.divider()
 
         # Ordenar df_view conforme critério
@@ -146,6 +163,15 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
             center_lon = (bounds[0] + bounds[2]) / 2
             zoom = 8 if rd_filtro != "TODAS" else 7
 
+            if cand_filtro_clique and cand_filtro_clique != "TODOS":
+                c_gdf = gdf_mun[gdf_mun['vencedor'] == cand_filtro_clique]
+                if len(c_gdf) > 0:
+                    c_bounds = c_gdf.total_bounds
+                    if len(c_bounds) == 4 and not any(pd.isna(c_bounds)):
+                        center_lat = (c_bounds[1] + c_bounds[3]) / 2
+                        center_lon = (c_bounds[0] + c_bounds[2]) / 2
+                        zoom = 8
+
             if busca_mun.strip() and len(df_view) == 1:
                 m_bounds = gdf_mun[gdf_mun['CD_MUN'] == df_view.iloc[0]['CD_MUN']].total_bounds
                 if len(m_bounds) == 4 and not any(pd.isna(m_bounds)):
@@ -157,6 +183,22 @@ def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_sel
 
             def style_mun(feature):
                 c = feature['properties'].get('cor') or '#2980B9'
+                venc = feature['properties'].get('vencedor')
+                if cand_filtro_clique and cand_filtro_clique != "TODOS":
+                    if venc == cand_filtro_clique:
+                        return {
+                            'fillColor': c,
+                            'color': '#1A252F',
+                            'weight': 2.2,
+                            'fillOpacity': 0.85
+                        }
+                    else:
+                        return {
+                            'fillColor': '#EAEDED',
+                            'color': '#BDC3C7',
+                            'weight': 0.7,
+                            'fillOpacity': 0.20
+                        }
                 return {
                     'fillColor': c,
                     'color': '#34495E',

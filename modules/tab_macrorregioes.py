@@ -39,18 +39,30 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['REGIAO_DESENVOLVIMENTO']})")
         col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['REGIAO_DESENVOLVIMENTO']})")
         
-        # Placar de Vitórias
-        badges = []
-        for cand, cnt in venc_counts.items():
-            bg_c = get_cores_foco(cand)[0]
-            fg_c = get_contrast_color(bg_c)
-            badges.append(
-                f"<span style='background-color: {bg_c}; color: {fg_c}; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
-                f"{cand}: {cnt} {'região' if cnt == 1 else 'regiões'} ({cnt/len(df_venc)*100:.1f}%)"
-                f"</span>"
-            )
-        placar_html = " ".join(badges)
-        st.markdown(f"**Placar de Liderança Regional:** {placar_html}", unsafe_allow_html=True)
+        # Placar de Vitórias e Filtro Clicável por Vencedor (st.pills)
+        cand_part_map = dict(zip(df_venc['vencedor'], df_venc['partido_vencedor']))
+        opcoes_pills_reg = ["TODAS"] + list(venc_counts.index)
+
+        def format_pill_reg(cand):
+            if cand == "TODAS":
+                return f"🌐 TODAS ({len(df_venc)} regiões)"
+            cnt = venc_counts.get(cand, 0)
+            pct = 100.0 * cnt / len(df_venc) if len(df_venc) > 0 else 0
+            part = cand_part_map.get(cand, "")
+            part_str = f" ({part})" if part and part != '-' else ""
+            return f"{cand}{part_str}: {cnt} ({pct:.1f}%)"
+
+        cand_filtro_clique = st.pills(
+            "🏆 Placar de Liderança Regional (Clique no candidato para isolar suas regiões no mapa):",
+            options=opcoes_pills_reg,
+            default="TODAS",
+            format_func=format_pill_reg,
+            key=f"pill_venc_macro_{ano}_{cargo}_{turno}"
+        )
+
+        if cand_filtro_clique and cand_filtro_clique != "TODAS":
+            st.info(f"🎯 **Filtro Ativo:** Exibindo as regiões onde **{cand_filtro_clique} ({cand_part_map.get(cand_filtro_clique, '')})** foi o mais votado. Clique em 'TODAS' para ver o mapa geral.")
+
         st.divider()
         
         # Atribuir cores dos vencedores para plotagem
@@ -93,9 +105,25 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
             
             m = folium.Map(location=[-8.35, -37.8], zoom_start=7, tiles="OpenStreetMap")
             
-            # Polígonos coloridos pela cor do vencedor
+            # Polígonos coloridos pela cor do vencedor com destaque para o filtro ativo
             def style_fn(feature):
+                venc = feature['properties'].get('vencedor')
                 cor = feature['properties'].get('cor') or '#2980B9'
+                if cand_filtro_clique and cand_filtro_clique != "TODAS":
+                    if venc == cand_filtro_clique:
+                        return {
+                            'fillColor': cor,
+                            'color': '#1A252F',
+                            'weight': 2.5,
+                            'fillOpacity': 0.90
+                        }
+                    else:
+                        return {
+                            'fillColor': '#EAEDED',
+                            'color': '#BDC3C7',
+                            'weight': 0.8,
+                            'fillOpacity': 0.20
+                        }
                 return {
                     'fillColor': cor,
                     'color': '#2C3E50',
@@ -115,7 +143,8 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
             st_folium(m, height=430, width="100%")
             
         st.markdown("**Tabela Completa de Vencedores por Macrorregião**")
-        df_tbl = df_venc[[
+        df_tbl_view = df_venc if (not cand_filtro_clique or cand_filtro_clique == "TODAS") else df_venc[df_venc['vencedor'] == cand_filtro_clique]
+        df_tbl = df_tbl_view[[
             'REGIAO_DESENVOLVIMENTO', 'vencedor', 'partido_vencedor', 'pct_vencedor_fmt', 'votos_vencedor_fmt',
             'segundo', 'partido_segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'total_validos_fmt'
         ]].rename(columns={
