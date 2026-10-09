@@ -22,31 +22,67 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- SISTEMA DE SENHA / ACESSO RESTRITO ---
+# --- SISTEMA DE AUTENTICAÇÃO (USUÁRIO E SENHA) ---
 def check_password():
-    """Verifica se o usuário digitou a senha correta."""
-    if st.session_state.get("password_correct", False):
+    """Verifica se o usuário e senha digitados são válidos."""
+    if st.session_state.get("authenticated", False):
         return True
 
-    st.markdown("### 🔒 Acesso Restrito - Inteligência Eleitoral PE")
-    st.text_input("Digite a senha para acessar o painel:", type="password", key="password")
-    
-    # Obter senha dos secrets de forma segura (com fallback)
-    correct_password = "demokratia"
-    try:
-        if "password" in st.secrets:
-            correct_password = str(st.secrets["password"])
-        elif "PASSWORD" in st.secrets:
-            correct_password = str(st.secrets["PASSWORD"])
-    except Exception:
-        pass
+    # Layout centralizado para a tela de login
+    col_l, col_center, col_r = st.columns([1, 1.8, 1])
+    with col_center:
+        st.markdown("### 🔒 Acesso Restrito")
+        st.markdown("##### Painel de Inteligência Eleitoral de Pernambuco")
 
-    user_password = st.session_state.get("password", "")
-    if user_password and user_password == correct_password:
-        st.session_state["password_correct"] = True
-        st.rerun()
-    elif user_password:
-        st.error("Senha incorreta. Tente novamente.")
+        with st.form("login_form"):
+            username = st.text_input("Usuário:", placeholder="Digite seu usuário").strip()
+            password = st.text_input("Senha:", type="password", placeholder="Digite sua senha")
+            btn_entrar = st.form_submit_button("Entrar", use_container_width=True)
+
+        if btn_entrar:
+            if not username or not password:
+                st.warning("Por favor, preencha o usuário e a senha.")
+                return False
+
+            # Carregar banco de usuários dos secrets
+            users_db = {}
+            try:
+                if "passwords" in st.secrets:
+                    users_db = {k.lower(): str(v) for k, v in st.secrets["passwords"].items()}
+                elif "users" in st.secrets:
+                    users_db = {k.lower(): str(v) for k, v in st.secrets["users"].items()}
+            except Exception:
+                pass
+
+            # Compatibilidade com secret de senha única (caso ainda não tenha cadastrado lista de usuários)
+            single_pass = None
+            try:
+                if "password" in st.secrets:
+                    single_pass = str(st.secrets["password"])
+                elif "PASSWORD" in st.secrets:
+                    single_pass = str(st.secrets["PASSWORD"])
+            except Exception:
+                pass
+
+            # Fallback se nenhum secret estiver cadastrado
+            if not users_db and not single_pass:
+                users_db = {"admin": "demokratia"}
+
+            u_clean = username.lower()
+            
+            # Validação 1: Lista de usuários cadastrados nos secrets
+            if users_db and u_clean in users_db and str(users_db[u_clean]) == password:
+                st.session_state["authenticated"] = True
+                st.session_state["logged_user"] = username
+                st.rerun()
+            # Validação 2: Senha única cadastrada (permite qualquer nome de usuário preenchido com a senha certa)
+            elif not users_db and single_pass and password == single_pass:
+                st.session_state["authenticated"] = True
+                st.session_state["logged_user"] = username
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos. Tente novamente.")
+
     return False
 
 if not check_password():
@@ -61,6 +97,11 @@ df_mun_map['CD_MUN'] = df_mun_map['CD_MUN'].astype(str)
 
 # 3. Barra Lateral (Sidebar) com Filtros Globais
 st.sidebar.title("🗳️ Filtros Eleitorais")
+st.sidebar.markdown(f"👤 **Usuário:** `{st.session_state.get('logged_user', 'Conectado')}`")
+if st.sidebar.button("🚪 Sair", key="btn_logout", use_container_width=True):
+    st.session_state["authenticated"] = False
+    st.session_state["logged_user"] = None
+    st.rerun()
 st.sidebar.markdown("---")
 
 # Filtro Ano
