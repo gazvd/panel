@@ -21,10 +21,10 @@ def get_cor_partido(sigla: str) -> str:
     return cor
 
 def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecionada: str = None, tab_origem: str = "mun"):
-    """Renderiza o quadro de prefeitos eleitos por partido em eleições concluídas."""
+    """Renderiza o quadro de prefeitos eleitos por partido ordenado do maior para o menor."""
     df_pref = get_eleitos_prefeitos(ano)
     if len(df_pref) == 0:
-        st.info(f"Nenhum dado de prefeitos eleitos homologados disponível para o ano {ano}.")
+        st.info(f"Nenhum dado de prefeitos eleitos disponível para o ano {ano}.")
         return
 
     df_map_clean = df_mun_map[['CD_MUN', 'NM_MUN', 'REGIAO_DESENVOLVIMENTO']].copy()
@@ -44,12 +44,21 @@ def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecion
         st.info(f"Nenhuma prefeitura encontrada para a seleção informada em {ano}.")
         return
 
-    bancada = df_view['sigla_partido'].value_counts().reset_index()
-    bancada.columns = ['sigla_partido', 'total_prefeitos']
+    # Agregar cadeiras e votos para desempate
+    bancada = df_view.groupby('sigla_partido').agg(
+        total_prefeitos=('id_municipio', 'count'),
+        total_votos=('total_votos', 'sum')
+    ).reset_index()
     bancada['pct'] = (100.0 * bancada['total_prefeitos'] / total_pref).round(1)
 
+    # Ordenação decrescente: maior para o menor (com desempate por total de votos)
+    bancada = bancada.sort_values(['total_prefeitos', 'total_votos', 'sigla_partido'], ascending=[False, False, True]).reset_index(drop=True)
+
+    # Ordenação para Plotly exibir no topo o maior e na base o menor
+    bancada_plot = bancada.sort_values(['total_prefeitos', 'total_votos', 'sigla_partido'], ascending=[True, True, True])
+
     st.markdown(f"### 🏛️ Prefeituras Conquistadas por Partido — Eleições {ano} ({subtitulo_reg})")
-    st.caption(f"Distribuição partidária dos **{total_pref} prefeitos eleitos** {subtitulo_reg}.")
+    st.caption(f"Distribuição partidária dos **{total_pref} prefeitos eleitos** {subtitulo_reg} (ordenados do maior para o menor).")
 
     badges = []
     for _, r in bancada.iterrows():
@@ -70,7 +79,7 @@ def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecion
     with col_g:
         cor_map = {row['sigla_partido']: get_cor_partido(row['sigla_partido']) for _, row in bancada.iterrows()}
         fig = px.bar(
-            bancada.sort_values('total_prefeitos', ascending=True),
+            bancada_plot,
             x='total_prefeitos',
             y='sigla_partido',
             orientation='h',
@@ -79,18 +88,25 @@ def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecion
             text='total_prefeitos',
             labels={'total_prefeitos': 'Prefeituras Eleitas', 'sigla_partido': 'Partido'}
         )
-        fig.update_layout(height=380, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
+        fig.update_layout(
+            height=max(380, len(bancada) * 26),
+            margin=dict(l=0, r=10, t=10, b=0),
+            showlegend=False,
+            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+        )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True, key=f"plot_pref_{ano}_{tab_origem}")
 
     with col_t:
         st.markdown(f"**Ranking de Prefeituras ({ano})**")
-        df_rank_display = bancada.rename(columns={
+        df_rank_display = bancada[['sigla_partido', 'total_prefeitos', 'pct', 'total_votos']].rename(columns={
             'sigla_partido': 'Partido',
             'total_prefeitos': 'Prefeituras',
-            'pct': '% do Total'
+            'pct': '% do Total',
+            'total_votos': 'Votos Totais'
         })
         df_rank_display['% do Total'] = df_rank_display['% do Total'].apply(fmt_pct)
+        df_rank_display['Votos Totais'] = df_rank_display['Votos Totais'].apply(fmt_int)
         st.dataframe(df_rank_display, use_container_width=True, hide_index=True)
 
     with st.expander(f"📋 Ver Lista Completa dos {total_pref} Prefeitos Eleitos ({ano})", expanded=False):
@@ -114,7 +130,7 @@ def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecion
         st.dataframe(df_show[['Município', 'Região', 'Prefeito(a) Eleito(a)', 'Partido', 'Votos', 'Turno']], use_container_width=True, hide_index=True)
 
 def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecionado: str = None, nm_mun_selecionado: str = None, regiao_selecionada: str = None, tab_origem: str = "mun"):
-    """Renderiza a composição de Câmaras Municipais e o total estadual de vereadores."""
+    """Renderiza a composição de Câmaras Municipais e o total estadual de vereadores ordenado do maior para o menor."""
     df_muns_list = df_mun_map[['CD_MUN', 'NM_MUN']].dropna().drop_duplicates().sort_values('NM_MUN')
     muns_dict = dict(zip(df_muns_list['NM_MUN'], df_muns_list['CD_MUN']))
     opcoes_camara = ["TODOS (Visão Estadual de Vereadores)"] + list(muns_dict.keys())
@@ -149,12 +165,18 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
             return
 
         total_cadeiras = len(df_ver_mun)
-        bancada_mun = df_ver_mun['sigla_partido'].value_counts().reset_index()
-        bancada_mun.columns = ['sigla_partido', 'total_vereadores']
+        bancada_mun = df_ver_mun.groupby('sigla_partido').agg(
+            total_vereadores=('nome_urna', 'count'),
+            total_votos=('total_votos', 'sum')
+        ).reset_index()
         bancada_mun['pct'] = (100.0 * bancada_mun['total_vereadores'] / total_cadeiras).round(1)
 
+        # Ordenar do maior para o menor
+        bancada_mun = bancada_mun.sort_values(['total_vereadores', 'total_votos', 'sigla_partido'], ascending=[False, False, True]).reset_index(drop=True)
+        bancada_plot = bancada_mun.sort_values(['total_vereadores', 'total_votos', 'sigla_partido'], ascending=[True, True, True])
+
         st.markdown(f"### 🏛️ Composição da Câmara Municipal de {mun_nome_display} — Eleições {ano}")
-        st.caption(f"Bancada eleita oficial: **{total_cadeiras} cadeiras** na Câmara Municipal.")
+        st.caption(f"Bancada eleita oficial: **{total_cadeiras} cadeiras** na Câmara Municipal (ordenadas do maior para o menor).")
 
         badges = []
         for _, r in bancada_mun.iterrows():
@@ -175,7 +197,7 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
         with col_g:
             cor_map = {row['sigla_partido']: get_cor_partido(row['sigla_partido']) for _, row in bancada_mun.iterrows()}
             fig = px.bar(
-                bancada_mun.sort_values('total_vereadores', ascending=True),
+                bancada_plot,
                 x='total_vereadores',
                 y='sigla_partido',
                 orientation='h',
@@ -184,7 +206,12 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
                 text='total_vereadores',
                 labels={'total_vereadores': 'Cadeiras', 'sigla_partido': 'Partido'}
             )
-            fig.update_layout(height=360, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
+            fig.update_layout(
+                height=max(360, len(bancada_mun) * 28),
+                margin=dict(l=0, r=10, t=10, b=0),
+                showlegend=False,
+                yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+            )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True, key=f"plot_ver_mun_{ano}_{tab_origem}")
 
@@ -218,12 +245,20 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
             subtitulo = "em todo o Estado de Pernambuco"
 
         total_ver = len(df_view)
-        bancada_tot = df_view['sigla_partido'].value_counts().reset_index()
-        bancada_tot.columns = ['sigla_partido', 'total_vereadores']
+        bancada_tot = df_view.groupby('sigla_partido').agg(
+            total_vereadores=('id_municipio', 'count'),
+            total_votos=('total_votos', 'sum')
+        ).reset_index()
         bancada_tot['pct'] = (100.0 * bancada_tot['total_vereadores'] / total_ver).round(1)
 
+        # Ordenar do maior para o menor
+        bancada_tot = bancada_tot.sort_values(['total_vereadores', 'total_votos', 'sigla_partido'], ascending=[False, False, True]).reset_index(drop=True)
+
+        top_partidos = bancada_tot.head(15).copy()
+        bancada_plot = top_partidos.sort_values(['total_vereadores', 'total_votos', 'sigla_partido'], ascending=[True, True, True])
+
         st.markdown(f"### 🗳️ Total de Vereadores Eleitos por Partido — Eleições {ano} ({subtitulo})")
-        st.caption(f"Total de **{fmt_int(total_ver)} vereadores eleitos** {subtitulo}.")
+        st.caption(f"Total de **{fmt_int(total_ver)} vereadores eleitos** {subtitulo} (ordenados do maior para o menor).")
 
         badges = []
         for _, r in bancada_tot.head(10).iterrows():
@@ -242,10 +277,9 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
 
         col_g, col_t = st.columns([1.2, 0.8])
         with col_g:
-            top_partidos = bancada_tot.head(15).sort_values('total_vereadores', ascending=True)
             cor_map = {row['sigla_partido']: get_cor_partido(row['sigla_partido']) for _, row in top_partidos.iterrows()}
             fig = px.bar(
-                top_partidos,
+                bancada_plot,
                 x='total_vereadores',
                 y='sigla_partido',
                 orientation='h',
@@ -254,35 +288,48 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
                 text='total_vereadores',
                 labels={'total_vereadores': 'Vereadores Eleitos', 'sigla_partido': 'Partido'}
             )
-            fig.update_layout(height=420, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
+            fig.update_layout(
+                height=420,
+                margin=dict(l=0, r=10, t=10, b=0),
+                showlegend=False,
+                yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+            )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True, key=f"plot_ver_pe_{ano}_{tab_origem}")
 
         with col_t:
             st.markdown(f"**Bancada Total de Vereadores ({ano})**")
-            df_table = bancada_tot.rename(columns={
+            df_table = bancada_tot[['sigla_partido', 'total_vereadores', 'pct', 'total_votos']].rename(columns={
                 'sigla_partido': 'Partido',
                 'total_vereadores': 'Vereadores Eleitos',
-                'pct': '% das Cadeiras'
+                'pct': '% das Cadeiras',
+                'total_votos': 'Votos Totais'
             })
             df_table['Vereadores Eleitos'] = df_table['Vereadores Eleitos'].apply(fmt_int)
             df_table['% das Cadeiras'] = df_table['% das Cadeiras'].apply(fmt_pct)
+            df_table['Votos Totais'] = df_table['Votos Totais'].apply(fmt_int)
             st.dataframe(df_table, use_container_width=True, hide_index=True)
 
 def _render_painel_alepe(ano: int, tab_origem: str = "mun"):
-    """Renderiza a bancada oficial da ALEPE (49 deputados estaduais) de eleições concluídas."""
+    """Renderiza a bancada oficial da ALEPE (49 deputados estaduais) ordenada do maior para o menor."""
     df_est = get_eleitos_parlamentares(ano, 'deputado estadual')
     if len(df_est) == 0:
         st.info(f"Nenhum deputado estadual eleito disponível para o ano {ano}.")
         return
 
     total_alepe = len(df_est)
-    bancada_alepe = df_est['sigla_partido'].value_counts().reset_index()
-    bancada_alepe.columns = ['sigla_partido', 'total_deputados']
+    bancada_alepe = df_est.groupby('sigla_partido').agg(
+        total_deputados=('nome_urna', 'count'),
+        total_votos=('total_votos', 'sum')
+    ).reset_index()
     bancada_alepe['pct'] = (100.0 * bancada_alepe['total_deputados'] / total_alepe).round(1)
 
+    # Ordenar do maior para o menor (com votos para desempate)
+    bancada_alepe = bancada_alepe.sort_values(['total_deputados', 'total_votos', 'sigla_partido'], ascending=[False, False, True]).reset_index(drop=True)
+    bancada_plot = bancada_alepe.sort_values(['total_deputados', 'total_votos', 'sigla_partido'], ascending=[True, True, True])
+
     st.markdown(f"### 🏛️ Composição Oficial da ALEPE — Eleições {ano} ({total_alepe} Cadeiras)")
-    st.caption(f"Distribuição partidária das **{total_alepe} cadeiras** da Assembleia Legislativa de Pernambuco.")
+    st.caption(f"Distribuição partidária das **{total_alepe} cadeiras** da Assembleia Legislativa de Pernambuco (ordenadas do maior para o menor).")
 
     badges = []
     for _, r in bancada_alepe.iterrows():
@@ -303,7 +350,7 @@ def _render_painel_alepe(ano: int, tab_origem: str = "mun"):
     with col_g:
         cor_map = {row['sigla_partido']: get_cor_partido(row['sigla_partido']) for _, row in bancada_alepe.iterrows()}
         fig = px.bar(
-            bancada_alepe.sort_values('total_deputados', ascending=True),
+            bancada_plot,
             x='total_deputados',
             y='sigla_partido',
             orientation='h',
@@ -312,18 +359,25 @@ def _render_painel_alepe(ano: int, tab_origem: str = "mun"):
             text='total_deputados',
             labels={'total_deputados': 'Deputados Eleitos', 'sigla_partido': 'Partido'}
         )
-        fig.update_layout(height=380, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
+        fig.update_layout(
+            height=max(380, len(bancada_alepe) * 28),
+            margin=dict(l=0, r=10, t=10, b=0),
+            showlegend=False,
+            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+        )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True, key=f"plot_alepe_{ano}_{tab_origem}")
 
     with col_t:
         st.markdown("**Quadro de Bancadas na ALEPE**")
-        df_alepe_disp = bancada_alepe.rename(columns={
+        df_alepe_disp = bancada_alepe[['sigla_partido', 'total_deputados', 'pct', 'total_votos']].rename(columns={
             'sigla_partido': 'Partido',
             'total_deputados': 'Cadeiras',
-            'pct': '% da Casa'
+            'pct': '% da Casa',
+            'total_votos': 'Votos Totais'
         })
         df_alepe_disp['% da Casa'] = df_alepe_disp['% da Casa'].apply(fmt_pct)
+        df_alepe_disp['Votos Totais'] = df_alepe_disp['Votos Totais'].apply(fmt_int)
         st.dataframe(df_alepe_disp, use_container_width=True, hide_index=True)
 
     with st.expander("📋 Ver Lista Nominal dos 49 Deputados Estaduais Eleitos", expanded=False):
@@ -337,19 +391,25 @@ def _render_painel_alepe(ano: int, tab_origem: str = "mun"):
         st.dataframe(df_nom[['Deputado(a) Eleito(a)', 'Partido', 'Número', 'Votação Total em PE']], use_container_width=True, hide_index=True)
 
 def _render_painel_federal(ano: int, tab_origem: str = "mun"):
-    """Renderiza a bancada federal de PE (25 deputados federais) de eleições concluídas."""
+    """Renderiza a bancada federal de PE (25 deputados federais) ordenada do maior para o menor."""
     df_fed = get_eleitos_parlamentares(ano, 'deputado federal')
     if len(df_fed) == 0:
         st.info(f"Nenhum deputado federal eleito disponível para o ano {ano}.")
         return
 
     total_fed = len(df_fed)
-    bancada_fed = df_fed['sigla_partido'].value_counts().reset_index()
-    bancada_fed.columns = ['sigla_partido', 'total_deputados']
+    bancada_fed = df_fed.groupby('sigla_partido').agg(
+        total_deputados=('nome_urna', 'count'),
+        total_votos=('total_votos', 'sum')
+    ).reset_index()
     bancada_fed['pct'] = (100.0 * bancada_fed['total_deputados'] / total_fed).round(1)
 
+    # Ordenar do maior para o menor (com desempate por votos totais do partido)
+    bancada_fed = bancada_fed.sort_values(['total_deputados', 'total_votos', 'sigla_partido'], ascending=[False, False, True]).reset_index(drop=True)
+    bancada_plot = bancada_fed.sort_values(['total_deputados', 'total_votos', 'sigla_partido'], ascending=[True, True, True])
+
     st.markdown(f"### 🏛️ Bancada Federal de Pernambuco na Câmara dos Deputados — Eleições {ano} ({total_fed} Cadeiras)")
-    st.caption(f"Distribuição partidária das **{total_fed} cadeiras** de Pernambuco no Congresso Nacional.")
+    st.caption(f"Distribuição partidária das **{total_fed} cadeiras** de Pernambuco no Congresso Nacional (ordenadas do maior para o menor).")
 
     badges = []
     for _, r in bancada_fed.iterrows():
@@ -370,7 +430,7 @@ def _render_painel_federal(ano: int, tab_origem: str = "mun"):
     with col_g:
         cor_map = {row['sigla_partido']: get_cor_partido(row['sigla_partido']) for _, row in bancada_fed.iterrows()}
         fig = px.bar(
-            bancada_fed.sort_values('total_deputados', ascending=True),
+            bancada_plot,
             x='total_deputados',
             y='sigla_partido',
             orientation='h',
@@ -379,18 +439,25 @@ def _render_painel_federal(ano: int, tab_origem: str = "mun"):
             text='total_deputados',
             labels={'total_deputados': 'Deputados Eleitos', 'sigla_partido': 'Partido'}
         )
-        fig.update_layout(height=380, margin=dict(l=0, r=10, t=10, b=0), showlegend=False)
+        fig.update_layout(
+            height=max(380, len(bancada_fed) * 28),
+            margin=dict(l=0, r=10, t=10, b=0),
+            showlegend=False,
+            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+        )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True, key=f"plot_fed_{ano}_{tab_origem}")
 
     with col_t:
         st.markdown("**Quadro da Bancada Federal de PE**")
-        df_fed_disp = bancada_fed.rename(columns={
+        df_fed_disp = bancada_fed[['sigla_partido', 'total_deputados', 'pct', 'total_votos']].rename(columns={
             'sigla_partido': 'Partido',
             'total_deputados': 'Cadeiras',
-            'pct': '% da Bancada'
+            'pct': '% da Bancada',
+            'total_votos': 'Votos Totais'
         })
         df_fed_disp['% da Bancada'] = df_fed_disp['% da Bancada'].apply(fmt_pct)
+        df_fed_disp['Votos Totais'] = df_fed_disp['Votos Totais'].apply(fmt_int)
         st.dataframe(df_fed_disp, use_container_width=True, hide_index=True)
 
     with st.expander("📋 Ver Lista Nominal dos 25 Deputados Federais Eleitos", expanded=False):
@@ -413,8 +480,7 @@ def render_painel_eleitos(
     tab_origem: str = "mun"
 ):
     """
-    Renderiza o quadro analítico de mandatos eleitos por partido exclusivamente
-    para eleições já homologadas (ano <= 2024) e para os cargos pertinentes:
+    Renderiza o quadro analítico de mandatos eleitos por partido ordenado do maior para o menor:
     - Prefeito: Prefeituras conquistadas no estado ou por região.
     - Vereador: Composição da Câmara Municipal selecionada ou visão estadual.
     - Deputado Estadual: Bancada oficial da ALEPE (49 deputados).
