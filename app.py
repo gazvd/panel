@@ -106,12 +106,13 @@ st.sidebar.markdown("---")
 
 # Filtro Ano
 anos_disponiveis = sorted(df_meta['ano'].unique(), reverse=True)
-default_ano_idx = 0  # Ano mais recente
+default_ano_idx = anos_disponiveis.index(2026) if 2026 in anos_disponiveis else 0
 ano_sel = st.sidebar.selectbox("Ano da Eleição:", anos_disponiveis, index=default_ano_idx)
 
 # Filtro Cargo (filtrado pelo ano)
 cargos_ano = sorted(df_meta[df_meta['ano'] == ano_sel]['cargo'].unique())
-cargo_sel = st.sidebar.selectbox("Cargo em Disputa:", cargos_ano, index=0)
+default_cargo_idx = cargos_ano.index('governador') if 'governador' in cargos_ano else 0
+cargo_sel = st.sidebar.selectbox("Cargo em Disputa:", cargos_ano, index=default_cargo_idx)
 
 # Filtro Turno (filtrado pelo ano e cargo)
 turnos_ano_cargo = sorted(df_meta[(df_meta['ano'] == ano_sel) & (df_meta['cargo'] == cargo_sel)]['turno'].unique())
@@ -129,17 +130,23 @@ if modo_analise == "Candidato":
         df_cands = get_ranking_candidatos(ano_sel, turno_sel, cargo_sel, limit=80)
         
     if len(df_cands) > 0:
-        cands_labels = [
+        cands_labels = ["⭐ TODOS (Mapa de Vencedores / Mais Votados)"] + [
             f"{row['nome_urna']} ({row['sigla_partido']}) - {fmt_int(row['total_votos'])} votos"
             for _, row in df_cands.iterrows()
         ]
         cand_idx = st.sidebar.selectbox(
             "Selecione o Candidato:",
             range(len(cands_labels)),
-            format_func=lambda i: cands_labels[i]
+            format_func=lambda i: cands_labels[i],
+            index=0,
+            key=f"sel_cand_main_{ano_sel}_{cargo_sel}_{turno_sel}"
         )
-        cand_selecionado = df_cands.iloc[cand_idx].to_dict()
-        partido_selecionado = cand_selecionado['sigla_partido']
+        if cand_idx == 0:
+            cand_selecionado = None
+            partido_selecionado = None
+        else:
+            cand_selecionado = df_cands.iloc[cand_idx - 1].to_dict()
+            partido_selecionado = cand_selecionado['sigla_partido']
     else:
         st.sidebar.info("Nenhum candidato encontrado para este pleito.")
 else:
@@ -147,16 +154,23 @@ else:
         df_parts = get_ranking_partidos(ano_sel, turno_sel, cargo_sel)
         
     if len(df_parts) > 0:
-        parts_labels = [
+        parts_labels = ["⭐ TODOS (Mapa de Vencedores por Partido)"] + [
             f"{row['sigla_partido']} ({fmt_int(row['total_votos'])} votos)"
             for _, row in df_parts.iterrows()
         ]
         part_idx = st.sidebar.selectbox(
             "Selecione o Partido:",
             range(len(parts_labels)),
-            format_func=lambda i: parts_labels[i]
+            format_func=lambda i: parts_labels[i],
+            index=0,
+            key=f"sel_part_main_{ano_sel}_{cargo_sel}_{turno_sel}"
         )
-        partido_selecionado = df_parts.iloc[part_idx]['sigla_partido']
+        if part_idx == 0:
+            partido_selecionado = None
+            cand_selecionado = None
+        else:
+            partido_selecionado = df_parts.iloc[part_idx - 1]['sigla_partido']
+            cand_selecionado = None
     else:
         st.sidebar.info("Nenhum partido encontrado para este pleito.")
 
@@ -173,8 +187,14 @@ st.sidebar.caption(
 )
 
 # 4. Cabeçalho Principal
-alvo_display = cand_selecionado['nome_urna'] if cand_selecionado is not None else partido_selecionado
-partido_badge = f" ({cand_selecionado['sigla_partido']})" if cand_selecionado is not None else ""
+modo_todos = (cand_selecionado is None and partido_selecionado is None)
+
+if modo_todos:
+    alvo_display = "MAPA DE VENCEDORES (Mais Votados)"
+    partido_badge = ""
+else:
+    alvo_display = cand_selecionado['nome_urna'] if cand_selecionado is not None else partido_selecionado
+    partido_badge = f" ({cand_selecionado['sigla_partido']})" if cand_selecionado is not None else ""
 
 st.title("🗳️ Painel Eleitoral de Pernambuco")
 st.markdown(

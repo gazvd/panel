@@ -7,6 +7,241 @@ import duckdb
 from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, normalize_text
 
 def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map):
+    modo_todos = (cand_selecionado is None and partido_selecionado is None)
+
+    # Seletor de Município e Critério
+    muns_nomes = sorted(df_mun_map['NM_MUN'].unique().tolist())
+    recife_idx = muns_nomes.index("Recife") if "Recife" in muns_nomes else 0
+    
+    if modo_todos:
+        st.markdown("### 🏫 Locais de Votação — Mapa de Vencedores por Colégio")
+        st.caption("Candidato ou partido mais votado em cada colégio eleitoral e escola do município.")
+        
+        c1, c2, c3 = st.columns([1.1, 1.3, 1.6])
+        with c1:
+            mun_nome_sel = st.selectbox("Escolha o Município:", muns_nomes, index=recife_idx, key="locais_mun_venc_sel")
+        with c2:
+            criterio_venc = st.radio("Critério de Destaque:", ["Margem de Vitória (p.p.)", "% do Vencedor", "Votos do Vencedor"], horizontal=True, key="crit_venc_locais")
+        with c3:
+            busca_local = st.text_input("🔍 Pesquisar Escola, Zona ou Seção:", placeholder="Ex: 125, Paulo Freire, Zona 4, Boa Viagem...", key="busca_venc_local")
+
+        mun_info = df_mun_map[df_mun_map['NM_MUN'] == mun_nome_sel].iloc[0]
+        cd_mun_sel = int(mun_info['CD_MUN'])
+
+        df_locais = get_locais_votacao_base()
+        locais_mun = df_locais[df_locais['municipio'].str.upper() == mun_nome_sel.upper()].copy()
+
+        if len(locais_mun) == 0:
+            st.warning(f"Nenhum colégio eleitoral encontrado para {mun_nome_sel}.")
+            return
+
+        con = duckdb.connect()
+        res_path = str(PATH_RESULTADOS).replace("\\", "/")
+        is_pres = (cargo == "presidente")
+
+        if modo == "Partido":
+            q_venc = f"""
+            SELECT zona, secao, sigla_partido as nome_display, sigla_partido, SUM(total_votos) as votos
+            FROM '{res_path}'
+            WHERE ano = {ano} AND turno = {turno} AND cargo = '{cargo}' AND id_municipio = {cd_mun_sel} AND sigla_partido IS NOT NULL
+            GROUP BY zona, secao, sigla_partido
+            """
+            votos_cand = con.execute(q_venc).df()
+        elif is_pres:
+            from config import PRESIDENTES_NOMES
+            q_venc = f"""
+            SELECT zona, secao, sigla_partido, SUM(total_votos) as votos
+            FROM '{res_path}'
+            WHERE ano = {ano} AND turno = {turno} AND cargo = '{cargo}' AND id_municipio = {cd_mun_sel} AND sigla_partido IS NOT NULL
+            GROUP BY zona, secao, sigla_partido
+            """
+            votos_cand = con.execute(q_venc).df()
+            votos_cand['nome_display'] = votos_cand['sigla_partido'].apply(lambda s: PRESIDENTES_NOMES.get((ano, s), f"Presidenciável ({s})"))
+        else:
+            q_venc = f"""
+            SELECT zona, secao, nome_urna as nome_display, sigla_partido, SUM(total_votos) as votos
+            FROM '{res_path}'
+            WHERE ano = {ano} AND turno = {turno} AND cargo = '{cargo}' AND id_municipio = {cd_mun_sel}
+            GROUP BY zona, secao, nome_urna, sigla_partido
+            """
+            votos_cand = con.execute(q_venc).df()
+
+        # Cruzar seções com locais
+        locais_com_v = locais_mun.merge(votos_cand, on=['zona', 'secao'], how='inner')
+        
+        # Agregar por Colégio e candidato
+        loc_cand_agg = locais_com_v.groupby(['id_local', 'zona', 'codigo_local', 'nome_local', 'bairro', 'endereco', 'latitude', 'longitude', 'nome_display', 'sigla_partido']).agg(
+            votos=('votos', 'sum'),
+            aptos=('aptos', 'sum'),
+            qtd_secoes=('secao', 'nunique'),
+            secoes_lista=('secao', lambda x: ', '.join(map(str, sorted(set(x)))))
+        ).reset_index()
+
+        loc_cand_agg['total_validos'] = loc_cand_agg.groupby('id_local')['votos'].transform('sum')
+        loc_cand_agg['pct_votos'] = (100.0 * loc_cand_agg['votos'] / loc_cand_agg['total_validos'].replace(0, 1)).round(2)
+        loc_cand_agg['rk'] = loc_cand_agg.groupby('id_local')['votos'].rank(ascending=False, method='first')
+
+        firsts = loc_cand_agg[loc_cand_agg['rk'] == 1].rename(columns={
+            'nome_display': 'vencedor', 'sigla_partido': 'partido_vencedor', 'votos': 'votos_vencedor', 'pct_votos': 'pct_vencedor'
+        })
+        seconds = loc_cand_agg[loc_cand_agg['rk'] == 2].rename(columns={
+            'nome_display': 'segundo', 'sigla_partido': 'partido_segundo', 'votos': 'votos_segundo', 'pct_votos': 'pct_segundo'
+        })
+
+        loc_venc_res = firsts[['id_local', 'zona', 'codigo_local', 'nome_local', 'bairro', 'endereco', 'latitude', 'longitude', 'aptos', 'qtd_secoes', 'secoes_lista', 'vencedor', 'partido_vencedor', 'votos_vencedor', 'total_validos', 'pct_vencedor']].merge(
+            seconds[['id_local', 'segundo', 'partido_segundo', 'votos_segundo', 'pct_segundo']],
+            on='id_local', how='left'
+        )
+        loc_venc_res['segundo'] = loc_venc_res['segundo'].fillna('-')
+        loc_venc_res['partido_segundo'] = loc_venc_res['partido_segundo'].fillna('-')
+        loc_venc_res['votos_segundo'] = loc_venc_res['votos_segundo'].fillna(0).astype(int)
+        loc_venc_res['pct_segundo'] = loc_venc_res['pct_segundo'].fillna(0.0)
+        loc_venc_res['margem_pct'] = (loc_venc_res['pct_vencedor'] - loc_venc_res['pct_segundo']).round(2)
+        loc_venc_res['margem_votos'] = loc_venc_res['votos_vencedor'] - loc_venc_res['votos_segundo']
+        loc_venc_res['cor'] = loc_venc_res.apply(lambda r: get_cores_foco(r['vencedor'], r['partido_vencedor'])[0], axis=1)
+
+        loc_venc_res['pct_vencedor_fmt'] = loc_venc_res['pct_vencedor'].apply(fmt_pct)
+        loc_venc_res['pct_segundo_fmt'] = loc_venc_res['pct_segundo'].apply(fmt_pct)
+        loc_venc_res['margem_pct_fmt'] = loc_venc_res['margem_pct'].apply(lambda v: f"+{fmt_pct(v)}")
+        loc_venc_res['margem_votos_fmt'] = loc_venc_res['margem_votos'].apply(lambda v: f"+{fmt_int(v)}")
+        loc_venc_res['votos_vencedor_fmt'] = loc_venc_res['votos_vencedor'].apply(fmt_int)
+        loc_venc_res['votos_segundo_fmt'] = loc_venc_res['votos_segundo'].apply(fmt_int)
+        loc_venc_res['total_validos_fmt'] = loc_venc_res['total_validos'].apply(fmt_int)
+        loc_venc_res['aptos_fmt'] = loc_venc_res['aptos'].apply(fmt_int)
+
+        df_loc_view = loc_venc_res.copy()
+
+        if busca_local.strip():
+            q_l = normalize_text(busca_local)
+            q_digits = "".join(filter(str.isdigit, q_l))
+
+            def match_colegio(row):
+                if (q_l in normalize_text(row['nome_local'])) or (q_l in normalize_text(row['bairro'])) or (q_l in normalize_text(row['endereco'])):
+                    return True
+                if q_digits:
+                    secoes = [s.strip() for s in str(row['secoes_lista']).split(',')]
+                    if q_digits in secoes or str(row['zona']) == q_digits or str(row['codigo_local']) == q_digits:
+                        return True
+                return False
+
+            df_loc_view = df_loc_view[df_loc_view.apply(match_colegio, axis=1)].reset_index(drop=True)
+            if len(df_loc_view) == 1:
+                loc_s = df_loc_view.iloc[0]
+                st.success(
+                    f"🎯 **{loc_s['nome_local']}** (Zona {loc_s['zona']} | {loc_s['bairro']}) — "
+                    f"🥇 **{loc_s['vencedor']} ({loc_s['partido_vencedor']})**: {loc_s['votos_vencedor_fmt']} votos ({loc_s['pct_vencedor_fmt']}) | "
+                    f"🥈 **{loc_s['segundo']} ({loc_s['partido_segundo']})**: {loc_s['votos_segundo_fmt']} votos ({loc_s['pct_segundo_fmt']}) | "
+                    f"Margem: **{loc_s['margem_pct_fmt']}** ({loc_s['margem_votos_fmt']} votos) | "
+                    f"Total Válidos: **{loc_s['total_validos_fmt']}** | Seções ({loc_s['qtd_secoes']}): {loc_s['secoes_lista']}"
+                )
+            elif len(df_loc_view) == 0:
+                st.warning(f"Nenhum colégio eleitoral com o termo '{busca_local}' em {mun_nome_sel}.")
+
+        # Placar de vitórias
+        venc_counts = df_loc_view['vencedor'].value_counts()
+        lider_cand = venc_counts.index[0] if len(venc_counts) > 0 else "-"
+        lider_vitorias = venc_counts.iloc[0] if len(venc_counts) > 0 else 0
+
+        df_s_margem = df_loc_view.sort_values('margem_pct', ascending=False)
+        top_margem = df_s_margem.iloc[0] if len(df_s_margem) > 0 else None
+        menor_margem = df_s_margem.iloc[-1] if len(df_s_margem) > 0 else None
+
+        # KPIs
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Colégios Analisados", f"{len(df_loc_view)}")
+        col2.metric("Líder em Colégios", f"{lider_cand} ({lider_vitorias} locais)" if lider_cand != "-" else "-")
+        col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['nome_local'][:22]}...)" if top_margem is not None else "-")
+        col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['nome_local'][:22]}...)" if menor_margem is not None else "-")
+
+        # Badges
+        placar_html = " ".join([
+            f"<span style='background-color: {get_cores_foco(cand)[0]}; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
+            f"{cand}: {cnt} {'colégio' if cnt == 1 else 'colégios'} ({cnt/len(df_loc_view)*100:.1f}%)"
+            f"</span>"
+            for cand, cnt in venc_counts.items()
+        ])
+        st.markdown(f"**Placar de Colégios Conquistados ({mun_nome_sel}):** {placar_html}", unsafe_allow_html=True)
+        st.divider()
+
+        # Ordenação
+        if criterio_venc == "Margem de Vitória (p.p.)":
+            df_loc_plot = df_loc_view.sort_values('margem_pct', ascending=False).reset_index(drop=True)
+        elif criterio_venc == "% do Vencedor":
+            df_loc_plot = df_loc_view.sort_values('pct_vencedor', ascending=False).reset_index(drop=True)
+        else:
+            df_loc_plot = df_loc_view.sort_values('votos_vencedor', ascending=False).reset_index(drop=True)
+
+        loc_geo = df_loc_plot.dropna(subset=['latitude', 'longitude']).copy()
+        loc_geo = loc_geo[(loc_geo['latitude'] != 0) & (loc_geo['longitude'] != 0)]
+
+        if len(loc_geo) > 0:
+            center_lat = loc_geo['latitude'].mean()
+            center_lon = loc_geo['longitude'].mean()
+            zoom = 12
+            if busca_local.strip() and len(df_loc_view) == 1:
+                center_lat = loc_geo.iloc[0]['latitude']
+                center_lon = loc_geo.iloc[0]['longitude']
+                zoom = 16
+
+            m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom, tiles="OpenStreetMap")
+
+            for _, row in loc_geo.iterrows():
+                radius = 8
+                tooltip_txt = f"{row['nome_local']} — 🥇 {row['vencedor']}: {row['pct_vencedor_fmt']} | Margem: {row['margem_pct_fmt']}"
+
+                popup_html = f"""
+                <div style="font-family: sans-serif; font-size: 12px; width: 260px;">
+                    <b style="color: #2C3E50;">{row['nome_local']}</b><br>
+                    <b>Bairro:</b> {row['bairro']} | <b>Zona:</b> {row['zona']}<br>
+                    <hr style="margin: 5px 0;">
+                    <b style="color: {row['cor']};">🥇 Vencedor: {row['vencedor']} ({row['partido_vencedor']})</b><br>
+                    • {row['votos_vencedor_fmt']} votos ({row['pct_vencedor_fmt']})<br>
+                    <b>🥈 2º Colocado: {row['segundo']} ({row['partido_segundo']})</b><br>
+                    • {row['votos_segundo_fmt']} votos ({row['pct_segundo_fmt']})<br>
+                    <b>Margem de Vitória:</b> {row['margem_pct_fmt']} ({row['margem_votos_fmt']} votos)<br>
+                    <b>Total Válidos:</b> {row['total_validos_fmt']}<br>
+                    <b>Seções ({row['qtd_secoes']}):</b> {row['secoes_lista']}<br>
+                </div>
+                """
+
+                folium.CircleMarker(
+                    location=[row['latitude'], row['longitude']],
+                    radius=radius,
+                    popup=folium.Popup(popup_html, max_width=300),
+                    tooltip=tooltip_txt,
+                    color="#2C3E50",
+                    fill=True,
+                    fill_color=row['cor'],
+                    fill_opacity=0.85,
+                    weight=1.2
+                ).add_to(m)
+
+            st_folium(m, height=450, width="100%")
+        else:
+            st.info("Nenhum colégio eleitoral com coordenadas válidas para exibir no mapa deste município.")
+
+        st.markdown(f"**Tabela Completa de Vencedores por Colégio: {mun_nome_sel}**")
+        df_tbl_loc = df_loc_view[[
+            'nome_local', 'bairro', 'zona', 'vencedor', 'partido_vencedor', 'pct_vencedor_fmt', 'votos_vencedor_fmt',
+            'segundo', 'partido_segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'total_validos_fmt'
+        ]].rename(columns={
+            'nome_local': 'Nome do Colégio',
+            'bairro': 'Bairro / Localidade',
+            'zona': 'Zona',
+            'vencedor': '🥇 1º Colocado (Vencedor)',
+            'partido_vencedor': 'Part. Venc.',
+            'pct_vencedor_fmt': '% Vencedor',
+            'votos_vencedor_fmt': 'Votos Vencedor',
+            'segundo': '🥈 2º Colocado',
+            'partido_segundo': 'Part. 2º',
+            'pct_segundo_fmt': '% 2º Lugar',
+            'margem_pct_fmt': 'Margem (p.p.)',
+            'total_validos_fmt': 'Total Válidos'
+        })
+        st.dataframe(df_tbl_loc, use_container_width=True, hide_index=True)
+        return
+
+    # MODO INDIVIDUAL (Candidato ou Partido Selecionado)
     st.markdown("### 🏫 Locais de Votação (3.406 Colégios Eleitorais)")
     st.caption("Mapeamento pontual dos locais de votação com densidade de votos e detalhes de seções.")
     

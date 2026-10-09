@@ -8,6 +8,189 @@ from modules.data_loader import get_votos_municipios
 from config import fmt_int, fmt_pct, get_cores_foco, normalize_text
 
 def render_tab_municipios(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map):
+    modo_todos = (cand_selecionado is None and partido_selecionado is None)
+
+    if modo_todos:
+        st.markdown("### 🏛️ Municípios — Mapa de Vencedores (185 Municípios de Pernambuco)")
+        st.caption("Distribuição geográfica dos candidatos mais votados em cada município e margens de vitória.")
+        
+        from modules.data_loader import get_vencedores_municipios
+        df_venc = get_vencedores_municipios(ano, turno, cargo, modo=modo)
+        df_venc['CD_MUN'] = df_venc['id_municipio'].astype(str)
+        
+        # Merge com metadados dos municípios
+        df_mun_merged = df_mun_map.merge(df_venc, on='CD_MUN', how='left')
+        
+        if len(df_mun_merged) == 0:
+            st.warning("Nenhum dado encontrado para os filtros selecionados.")
+            return
+
+        # Atribuir cores dos vencedores
+        df_mun_merged['cor'] = df_mun_merged.apply(lambda r: get_cores_foco(r['vencedor'], r['partido_vencedor'])[0] if pd.notna(r['vencedor']) else '#2980B9', axis=1)
+        df_mun_merged['pct_vencedor_fmt'] = df_mun_merged['pct_vencedor'].apply(fmt_pct)
+        df_mun_merged['pct_segundo_fmt'] = df_mun_merged['pct_segundo'].apply(fmt_pct)
+        df_mun_merged['margem_pct_fmt'] = df_mun_merged['margem_pct'].apply(lambda v: f"+{fmt_pct(v)}")
+        df_mun_merged['margem_votos_fmt'] = df_mun_merged['margem_votos'].apply(lambda v: f"+{fmt_int(v)}")
+        df_mun_merged['votos_vencedor_fmt'] = df_mun_merged['votos_vencedor'].apply(fmt_int)
+        df_mun_merged['votos_segundo_fmt'] = df_mun_merged['votos_segundo'].apply(fmt_int)
+        df_mun_merged['total_validos_fmt'] = df_mun_merged['total_validos'].apply(fmt_int)
+
+        # Filtros
+        c_f1, c_f2, c_f3 = st.columns([1.0, 1.3, 1.7])
+        with c_f1:
+            rds_list = ["TODAS"] + sorted(df_mun_merged['REGIAO_DESENVOLVIMENTO'].dropna().unique().tolist())
+            rd_filtro = st.selectbox("Região:", rds_list, index=0, key="filtro_rd_venc_mun")
+        with c_f2:
+            criterio_venc = st.radio("Critério de Destaque:", ["Margem de Vitória (p.p.)", "% do Vencedor", "Votos do Vencedor"], horizontal=True, key="crit_venc_mun")
+        with c_f3:
+            busca_mun = st.text_input("🔍 Pesquisar Município:", placeholder="Ex: Caruaru, Petrolina, Olinda...", key="busca_venc_mun")
+
+        df_view = df_mun_merged if rd_filtro == "TODAS" else df_mun_merged[df_mun_merged['REGIAO_DESENVOLVIMENTO'] == rd_filtro].copy()
+
+        if busca_mun.strip():
+            q_m = normalize_text(busca_mun)
+            df_view = df_view[df_view['NM_MUN'].apply(lambda x: q_m in normalize_text(x))].reset_index(drop=True)
+            if len(df_view) == 1:
+                m_sel = df_view.iloc[0]
+                st.success(
+                    f"🎯 **{m_sel['NM_MUN']}** ({m_sel['REGIAO_DESENVOLVIMENTO']}) — "
+                    f"🥇 **{m_sel['vencedor']} ({m_sel['partido_vencedor']})**: {m_sel['votos_vencedor_fmt']} votos ({m_sel['pct_vencedor_fmt']}) | "
+                    f"🥈 **{m_sel['segundo']} ({m_sel['partido_segundo']})**: {m_sel['votos_segundo_fmt']} votos ({m_sel['pct_segundo_fmt']}) | "
+                    f"Margem: **{m_sel['margem_pct_fmt']}** ({m_sel['margem_votos_fmt']} votos) | "
+                    f"Total Válidos: **{m_sel['total_validos_fmt']}**"
+                )
+            elif len(df_view) == 0:
+                st.warning(f"Nenhum município encontrado com o termo '{busca_mun}'.")
+
+        # Placar de vitórias
+        venc_counts = df_view['vencedor'].value_counts()
+        lider_cand = venc_counts.index[0] if len(venc_counts) > 0 else "-"
+        lider_vitorias = venc_counts.iloc[0] if len(venc_counts) > 0 else 0
+
+        df_s_margem = df_view.sort_values('margem_pct', ascending=False)
+        top_margem = df_s_margem.iloc[0] if len(df_s_margem) > 0 else None
+        menor_margem = df_s_margem.iloc[-1] if len(df_s_margem) > 0 else None
+
+        # KPIs
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Municípios Analisados", f"{len(df_view)}")
+        col2.metric("Líder em Vitórias", f"{lider_cand} ({lider_vitorias} mun.)" if lider_cand != "-" else "-")
+        col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['NM_MUN']})" if top_margem is not None else "-")
+        col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['NM_MUN']})" if menor_margem is not None else "-")
+
+        # Badges do Placar
+        placar_html = " ".join([
+            f"<span style='background-color: {get_cores_foco(cand)[0]}; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
+            f"{cand}: {cnt} {'cidade' if cnt == 1 else 'cidades'} ({cnt/len(df_view)*100:.1f}%)"
+            f"</span>"
+            for cand, cnt in venc_counts.items()
+        ])
+        st.markdown(f"**Placar de Cidades Conquistadas:** {placar_html}", unsafe_allow_html=True)
+        st.divider()
+
+        # Ordenar df_view conforme critério
+        if criterio_venc == "Margem de Vitória (p.p.)":
+            df_view_plot = df_view.sort_values('margem_pct', ascending=False).reset_index(drop=True)
+        elif criterio_venc == "% do Vencedor":
+            df_view_plot = df_view.sort_values('pct_vencedor', ascending=False).reset_index(drop=True)
+        else:
+            df_view_plot = df_view.sort_values('votos_vencedor', ascending=False).reset_index(drop=True)
+
+        c_map, c_rank = st.columns([1.2, 0.8])
+
+        with c_rank:
+            st.markdown(f"**Top 10 Municípios ({criterio_venc})**")
+            top10 = df_view_plot.head(10).sort_values(
+                'margem_pct' if criterio_venc == "Margem de Vitória (p.p.)" else ('pct_vencedor' if criterio_venc == "% do Vencedor" else 'votos_vencedor'),
+                ascending=True
+            ).copy()
+            
+            eixo_x = 'margem_pct' if criterio_venc == "Margem de Vitória (p.p.)" else ('pct_vencedor' if criterio_venc == "% do Vencedor" else 'votos_vencedor')
+            top10['texto_barra'] = top10.apply(
+                lambda r: f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])}" if criterio_venc == "Margem de Vitória (p.p.)"
+                else (f"{r['vencedor']}: {fmt_pct(r['pct_vencedor'])}" if criterio_venc == "% do Vencedor" else f"{r['vencedor']}: {fmt_int(r['votos_vencedor'])}"),
+                axis=1
+            )
+            color_map = {row['vencedor']: row['cor'] for _, row in df_mun_merged.iterrows()}
+
+            fig = px.bar(
+                top10,
+                x=eixo_x,
+                y='NM_MUN',
+                orientation='h',
+                color='vencedor',
+                color_discrete_map=color_map,
+                text='texto_barra',
+                labels={eixo_x: criterio_venc, 'NM_MUN': 'Município', 'vencedor': 'Vencedor'}
+            )
+            fig.update_layout(height=430, margin=dict(l=0, r=0, t=10, b=0), showlegend=True)
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+
+        with c_map:
+            st.markdown(f"**Mapa de Vencedores por Município**")
+            gdf_mun = load_municipios_gdf().copy()
+            if rd_filtro != "TODAS":
+                gdf_mun = gdf_mun[gdf_mun['REGIAO_DESENVOLVIMENTO'] == rd_filtro]
+
+            gdf_mun['CD_MUN'] = gdf_mun['CD_MUN'].astype(str)
+            gdf_mun = gdf_mun.merge(df_mun_merged[['CD_MUN', 'vencedor', 'partido_vencedor', 'pct_vencedor_fmt', 'votos_vencedor_fmt', 'segundo', 'partido_segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'margem_votos_fmt', 'total_validos_fmt', 'cor']], on='CD_MUN', how='left')
+
+            bounds = gdf_mun.total_bounds
+            center_lat = (bounds[1] + bounds[3]) / 2
+            center_lon = (bounds[0] + bounds[2]) / 2
+            zoom = 8 if rd_filtro != "TODAS" else 7
+
+            if busca_mun.strip() and len(df_view) == 1:
+                m_bounds = gdf_mun[gdf_mun['CD_MUN'] == df_view.iloc[0]['CD_MUN']].total_bounds
+                if len(m_bounds) == 4 and not any(pd.isna(m_bounds)):
+                    center_lat = (m_bounds[1] + m_bounds[3]) / 2
+                    center_lon = (m_bounds[0] + m_bounds[2]) / 2
+                    zoom = 10
+
+            m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom, tiles="OpenStreetMap")
+
+            def style_mun(feature):
+                c = feature['properties'].get('cor') or '#2980B9'
+                return {
+                    'fillColor': c,
+                    'color': '#34495E',
+                    'weight': 1,
+                    'fillOpacity': 0.75
+                }
+
+            folium.GeoJson(
+                gdf_mun,
+                style_function=style_mun,
+                tooltip=folium.GeoJsonTooltip(
+                    fields=['NM_MUN', 'REGIAO_DESENVOLVIMENTO', 'vencedor', 'pct_vencedor_fmt', 'votos_vencedor_fmt', 'segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'total_validos_fmt'],
+                    aliases=['Município:', 'Região:', '🥇 Vencedor:', '% Vencedor:', 'Votos Vencedor:', '🥈 2º Colocado:', '% 2º Lugar:', 'Margem de Vitória:', 'Total Válidos:']
+                )
+            ).add_to(m)
+
+            st_folium(m, height=430, width="100%")
+
+        st.markdown("**Tabela Completa de Vencedores por Município**")
+        df_table_mun = df_view[[
+            'NM_MUN', 'REGIAO_DESENVOLVIMENTO', 'vencedor', 'partido_vencedor', 'pct_vencedor_fmt', 'votos_vencedor_fmt',
+            'segundo', 'partido_segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'total_validos_fmt'
+        ]].rename(columns={
+            'NM_MUN': 'Município',
+            'REGIAO_DESENVOLVIMENTO': 'Região de Desenvolvimento',
+            'vencedor': '🥇 1º Colocado (Vencedor)',
+            'partido_vencedor': 'Part. Venc.',
+            'pct_vencedor_fmt': '% Vencedor',
+            'votos_vencedor_fmt': 'Votos Vencedor',
+            'segundo': '🥈 2º Colocado',
+            'partido_segundo': 'Part. 2º',
+            'pct_segundo_fmt': '% 2º Lugar',
+            'margem_pct_fmt': 'Margem (p.p.)',
+            'total_validos_fmt': 'Total Válidos'
+        })
+        st.dataframe(df_table_mun, use_container_width=True, hide_index=True)
+        return
+
+    # MODO INDIVIDUAL (Candidato ou Partido Selecionado)
     st.markdown("### 🏛️ Municípios (185 Municípios de Pernambuco)")
     st.caption("Distribuição eleitoral e comparativo municipal em todo o território estadual.")
     

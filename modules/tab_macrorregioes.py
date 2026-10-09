@@ -8,6 +8,127 @@ from modules.data_loader import get_votos_municipios
 from config import CORES_PARTIDOS, COR_PADRAO, fmt_int, fmt_pct, get_cores_foco, normalize_text
 
 def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map):
+    modo_todos = (cand_selecionado is None and partido_selecionado is None)
+
+    if modo_todos:
+        st.markdown("### 🌍 Macrorregiões — Mapa de Vencedores (12 Regiões de Desenvolvimento)")
+        st.caption("Liderança eleitoral e placar de vitórias em cada uma das 12 Macrorregiões de Pernambuco.")
+        
+        from modules.data_loader import get_vencedores_regioes
+        df_venc = get_vencedores_regioes(ano, turno, cargo, modo=modo, df_mun_map=df_mun_map)
+        
+        if len(df_venc) == 0:
+            st.warning("Nenhum dado encontrado para os filtros selecionados.")
+            return
+
+        # Placar de vitórias por candidato/partido
+        venc_counts = df_venc['vencedor'].value_counts()
+        lider_cand = venc_counts.index[0]
+        lider_vitorias = venc_counts.iloc[0]
+        
+        # Maior e menor margem
+        df_sorted_margem = df_venc.sort_values('margem_pct', ascending=False)
+        top_margem = df_sorted_margem.iloc[0]
+        menor_margem = df_sorted_margem.iloc[-1]
+        
+        # KPIs Rápidos
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Regiões Analisadas", f"{len(df_venc)}")
+        col2.metric("Líder em Regiões", f"{lider_cand} ({lider_vitorias} de {len(df_venc)})")
+        col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['REGIAO_DESENVOLVIMENTO']})")
+        col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['REGIAO_DESENVOLVIMENTO']})")
+        
+        # Placar de Vitórias
+        placar_html = " ".join([
+            f"<span style='background-color: {get_cores_foco(cand)[0]}; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 8px; font-weight: bold; font-size: 0.9rem;'>"
+            f"{cand}: {cnt} {'região' if cnt == 1 else 'regiões'} ({cnt/len(df_venc)*100:.1f}%)"
+            f"</span>"
+            for cand, cnt in venc_counts.items()
+        ])
+        st.markdown(f"**Placar de Liderança Regional:** {placar_html}", unsafe_allow_html=True)
+        st.divider()
+        
+        # Atribuir cores dos vencedores para plotagem
+        df_venc['cor'] = df_venc.apply(lambda r: get_cores_foco(r['vencedor'], r['partido_vencedor'])[0], axis=1)
+        df_venc['pct_vencedor_fmt'] = df_venc['pct_vencedor'].apply(fmt_pct)
+        df_venc['pct_segundo_fmt'] = df_venc['pct_segundo'].apply(fmt_pct)
+        df_venc['margem_pct_fmt'] = df_venc['margem_pct'].apply(lambda v: f"+{fmt_pct(v)}")
+        df_venc['votos_vencedor_fmt'] = df_venc['votos_vencedor'].apply(fmt_int)
+        df_venc['votos_segundo_fmt'] = df_venc['votos_segundo'].apply(fmt_int)
+        df_venc['total_validos_fmt'] = df_venc['total_validos'].apply(fmt_int)
+        
+        c_map, c_chart = st.columns([1.1, 0.9])
+        
+        with c_chart:
+            st.markdown("**Margem de Vitória do Vencedor por Região (p.p.)**")
+            df_plot = df_venc.sort_values('margem_pct', ascending=True).copy()
+            df_plot['rotulo_barra'] = df_plot.apply(
+                lambda r: f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])} (sobre {r['segundo']})", axis=1
+            )
+            color_map = {row['vencedor']: row['cor'] for _, row in df_venc.iterrows()}
+            
+            fig = px.bar(
+                df_plot,
+                x='margem_pct',
+                y='REGIAO_DESENVOLVIMENTO',
+                orientation='h',
+                color='vencedor',
+                color_discrete_map=color_map,
+                text='rotulo_barra',
+                labels={'margem_pct': 'Margem de Vitória (p.p.)', 'REGIAO_DESENVOLVIMENTO': 'Região', 'vencedor': 'Vencedor'}
+            )
+            fig.update_layout(height=430, margin=dict(l=0, r=0, t=10, b=0), showlegend=True)
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with c_map:
+            st.markdown("**Mapa de Vencedores por Macrorregião**")
+            gdf_regioes = load_regioes_gdf().copy()
+            gdf_regioes = gdf_regioes.merge(df_venc, on='REGIAO_DESENVOLVIMENTO', how='left')
+            
+            m = folium.Map(location=[-8.35, -37.8], zoom_start=7, tiles="OpenStreetMap")
+            
+            # Polígonos coloridos pela cor do vencedor
+            def style_fn(feature):
+                cor = feature['properties'].get('cor') or '#2980B9'
+                return {
+                    'fillColor': cor,
+                    'color': '#2C3E50',
+                    'weight': 1.5,
+                    'fillOpacity': 0.75
+                }
+                
+            folium.GeoJson(
+                gdf_regioes,
+                style_function=style_fn,
+                tooltip=folium.GeoJsonTooltip(
+                    fields=['REGIAO_DESENVOLVIMENTO', 'vencedor', 'pct_vencedor_fmt', 'segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'total_validos_fmt'],
+                    aliases=['Região:', '🥇 1º Colocado:', '% 1º Lugar:', '🥈 2º Colocado:', '% 2º Lugar:', 'Margem de Vitória:', 'Total Válidos:']
+                )
+            ).add_to(m)
+            
+            st_folium(m, height=430, width="100%")
+            
+        st.markdown("**Tabela Completa de Vencedores por Macrorregião**")
+        df_tbl = df_venc[[
+            'REGIAO_DESENVOLVIMENTO', 'vencedor', 'partido_vencedor', 'pct_vencedor_fmt', 'votos_vencedor_fmt',
+            'segundo', 'partido_segundo', 'pct_segundo_fmt', 'margem_pct_fmt', 'total_validos_fmt'
+        ]].rename(columns={
+            'REGIAO_DESENVOLVIMENTO': 'Região de Desenvolvimento',
+            'vencedor': '1º Colocado (Vencedor)',
+            'partido_vencedor': 'Part. Venc.',
+            'pct_vencedor_fmt': '% Vencedor',
+            'votos_vencedor_fmt': 'Votos Vencedor',
+            'segundo': '2º Colocado',
+            'partido_segundo': 'Part. 2º',
+            'pct_segundo_fmt': '% 2º Lugar',
+            'margem_pct_fmt': 'Margem (p.p.)',
+            'total_validos_fmt': 'Total Válidos'
+        })
+        st.dataframe(df_tbl, use_container_width=True, hide_index=True)
+        return
+
+    # MODO INDIVIDUAL (Candidato ou Partido Específico)
     st.markdown("### 🌍 Macrorregiões (12 Regiões de Desenvolvimento)")
     st.caption("Visão agregada por macrorregião econômica e geográfica de Pernambuco.")
     
@@ -130,7 +251,6 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         coluna_cor = "votos" if criterio_analise == "Total de Votos (Nominais)" else "pct_votos"
         legenda_mapa = f"Total de Votos de {alvo_nome}" if criterio_analise == "Total de Votos (Nominais)" else f"% Votos de {alvo_nome}"
         
-        # Folium map centrado em Pernambuco usando OpenStreetMap (zero restrição de API key)
         m = folium.Map(location=[-8.35, -37.8], zoom_start=7, tiles="OpenStreetMap")
         
         folium.Choropleth(
@@ -145,7 +265,6 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
             legend_name=legenda_mapa
         ).add_to(m)
         
-        # Tooltip interativo
         folium.GeoJson(
             gdf_regioes,
             style_function=lambda x: {'fillColor': 'transparent', 'color': '#2C3E50', 'weight': 1.5},
@@ -157,7 +276,6 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         
         st_folium(m, height=420, width="100%")
         
-    # Tabela com formatação brasileira
     df_table = df_rd.copy()
     df_table['Votos Obtidos'] = df_table['votos'].apply(fmt_int)
     df_table['Total Votos Válidos'] = df_table['total_validos'].apply(fmt_int)
@@ -169,3 +287,4 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
         use_container_width=True,
         hide_index=True
     )
+
