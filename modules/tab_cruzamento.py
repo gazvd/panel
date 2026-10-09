@@ -648,7 +648,8 @@ def render_tab_cruzamento(df_meta, df_mun_map):
             margin=dict(l=0, r=0, t=10, b=0),
             legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5),
             xaxis_title="Múltiplo da Própria Média (1.0x = Média)",
-            yaxis=dict(autorange="reversed")
+            yaxis=dict(autorange="reversed", tickfont=dict(size=9)),
+            uniformtext=dict(minsize=8, mode='show')
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 

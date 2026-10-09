@@ -5,7 +5,7 @@ import plotly.express as px
 import pandas as pd
 from modules.geo_loader import load_regioes_gdf
 from modules.data_loader import get_votos_municipios
-from config import CORES_PARTIDOS, COR_PADRAO, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text
+from config import CORES_PARTIDOS, COR_PADRAO, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text, wrap_label
 
 def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
     if modo_todos is None:
@@ -165,7 +165,7 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
             st.markdown("**Margem de Vitória do Vencedor por Região (p.p.)**")
             df_plot = df_venc.sort_values('margem_pct', ascending=True).copy()
             df_plot['rotulo_barra'] = df_plot.apply(
-                lambda r: f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])} (sobre {r['segundo']})", axis=1
+                lambda r: wrap_label(f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])} (sobre {r['segundo']})", 26), axis=1
             )
             color_map = {row['vencedor']: row['cor'] for _, row in df_venc.iterrows()}
             
@@ -179,7 +179,13 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
                 text='rotulo_barra',
                 labels={'margem_pct': 'Margem de Vitória (p.p.)', 'REGIAO_DESENVOLVIMENTO': 'Região', 'vencedor': 'Vencedor'}
             )
-            fig.update_layout(height=430, margin=dict(l=0, r=0, t=10, b=0), showlegend=True)
+            fig.update_layout(
+                height=430,
+                margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=True,
+                uniformtext=dict(minsize=8, mode='show'),
+                yaxis=dict(tickfont=dict(size=9), automargin=True)
+            )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
             
@@ -361,7 +367,12 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
                 color='pct_votos',
                 color_continuous_scale=scale_plotly
             )
-        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=420, margin=dict(l=0, r=0, t=10, b=0))
+        fig.update_layout(
+            yaxis={'categoryorder': 'total ascending', 'tickfont': dict(size=9), 'automargin': True},
+            height=420,
+            margin=dict(l=0, r=0, t=10, b=0),
+            uniformtext=dict(minsize=8, mode='show')
+        )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
         
@@ -401,7 +412,13 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
             )
         ).add_to(m)
         
-        st_folium(m, height=420, width="100%")
+        st_folium(
+            m,
+            key=f"folium_macro_ind_{alvo_nome}_{criterio_analise}_{ano}_{cargo}_{turno}",
+            returned_objects=[],
+            height=420,
+            width="100%"
+        )
         
     df_table = df_rd.copy()
     df_table['Votos Obtidos'] = df_table['votos'].apply(fmt_int)
@@ -416,4 +433,3 @@ def render_tab_macrorregioes(ano, turno, cargo, modo, partido_selecionado, cand_
     )
     from modules.painel_eleitos import render_painel_eleitos
     render_painel_eleitos(ano, cargo, df_mun_map, tab_origem="macro_indiv")
-

@@ -7,7 +7,7 @@ import geopandas as gpd
 from modules.geo_loader import load_mosaico_bairros_gdf
 from modules.data_loader import get_locais_votacao_base
 import duckdb
-from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text
+from config import PATH_RESULTADOS, fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text, wrap_label
 
 def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
     if modo_todos is None:
@@ -179,8 +179,8 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
             eixo_x = 'margem_pct' if criterio_venc == "Margem de Vitória (p.p.)" else ('pct_vencedor' if criterio_venc == "% do Vencedor" else 'votos_vencedor')
             top_plot = df_view_plot.head(12).sort_values(eixo_x, ascending=True).copy()
             top_plot['texto_barra'] = top_plot.apply(
-                lambda r: f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])}" if criterio_venc == "Margem de Vitória (p.p.)"
-                else (f"{r['vencedor']}: {fmt_pct(r['pct_vencedor'])}" if criterio_venc == "% do Vencedor" else f"{r['vencedor']}: {fmt_int(r['votos_vencedor'])}"),
+                lambda r: wrap_label(f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])}" if criterio_venc == "Margem de Vitória (p.p.)"
+                else (f"{r['vencedor']}: {fmt_pct(r['pct_vencedor'])}" if criterio_venc == "% do Vencedor" else f"{r['vencedor']}: {fmt_int(r['votos_vencedor'])}"), 26),
                 axis=1
             )
             color_map = {row['vencedor']: row['cor'] for _, row in df_view.iterrows()}
@@ -195,7 +195,13 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
                 text='texto_barra',
                 labels={eixo_x: criterio_venc, 'NM_BAIRRO': 'Bairro / Distrito', 'vencedor': 'Vencedor'}
             )
-            fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=0), showlegend=True)
+            fig.update_layout(
+                height=450,
+                margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=True,
+                uniformtext=dict(minsize=8, mode='show'),
+                yaxis=dict(tickfont=dict(size=9), automargin=True)
+            )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
 
@@ -233,7 +239,13 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
                 )
             ).add_to(m)
 
-            st_folium(m, height=450, width="100%")
+            st_folium(
+                m,
+                key=f"folium_bairros_todos_{mun_nome_sel}_{criterio_venc}_{ano}_{cargo}_{turno}",
+                returned_objects=[],
+                height=450,
+                width="100%"
+            )
 
         st.markdown(f"**Tabela Completa de Vencedores: {mun_nome_sel}**")
         df_tbl_b = df_view[[
@@ -424,7 +436,12 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
                 labels={'pct_votos': '% Votos Válidos', 'NM_BAIRRO': 'Bairro / Distrito'}
             )
             
-        fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=0))
+        fig.update_layout(
+            height=450,
+            margin=dict(l=0, r=0, t=10, b=0),
+            uniformtext=dict(minsize=8, mode='show'),
+            yaxis=dict(tickfont=dict(size=9), automargin=True)
+        )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
         
@@ -468,7 +485,13 @@ def render_tab_bairros(ano, turno, cargo, modo, partido_selecionado, cand_seleci
             )
         ).add_to(m)
         
-        st_folium(m, height=450, width="100%")
+        st_folium(
+            m,
+            key=f"folium_bairros_ind_{mun_nome_sel}_{alvo_nome}_{criterio_analise}_{ano}_{cargo}_{turno}",
+            returned_objects=[],
+            height=450,
+            width="100%"
+        )
         
     st.markdown(f"**Tabela Detalhada: {mun_nome_sel}**")
     df_table_b = df_view.copy()

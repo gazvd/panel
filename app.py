@@ -23,6 +23,70 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Injeção de CSS Global: Evitar reticências (...) em caixas de texto delimitadas e métricas
+st.markdown("""
+<style>
+/* 1. Métricas do Streamlit: evitar '...' e reduzir fonte até 8pt com quebra de linha */
+div[data-testid="stMetricValue"] {
+    white-space: normal !important;
+    word-break: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    font-size: clamp(8pt, 1.25vw, 1.45rem) !important;
+    line-height: 1.25 !important;
+}
+
+div[data-testid="stMetricLabel"] {
+    white-space: normal !important;
+    word-break: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    font-size: clamp(8pt, 0.82vw, 0.95rem) !important;
+    line-height: 1.25 !important;
+}
+
+div[data-testid="stMetricDelta"] {
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: clamp(8pt, 0.78vw, 0.85rem) !important;
+}
+
+div[data-testid="stMetric"] {
+    overflow: visible !important;
+}
+
+/* 2. Alertas e caixas de texto (st.info, st.success, etc.) */
+div[data-testid="stAlert"] {
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: clamp(8pt, 0.88rem, 0.98rem) !important;
+}
+
+/* 3. Badges, chips e spans delimitados */
+span[style*="border-radius"] {
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: clamp(8pt, 0.82rem, 0.90rem) !important;
+    line-height: 1.3 !important;
+}
+
+/* 4. Dropdowns e caixas de seleção */
+div[data-baseweb="select"] * {
+    text-overflow: clip !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: clamp(8pt, 0.88rem, 0.98rem) !important;
+}
+
+/* 5. Títulos de expanders */
+div[data-testid="stExpander"] summary {
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: clamp(8pt, 0.92rem, 1.02rem) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --- SISTEMA DE AUTENTICAÇÃO (USUÁRIO E SENHA) ---
 def check_password():
     """Verifica se o usuário e senha digitados são válidos."""

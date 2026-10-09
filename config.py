@@ -120,6 +120,26 @@ def normalize_text(s):
     import unicodedata
     return unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('ASCII').upper().strip()
 
+def wrap_label(text: str, max_chars: int = 26) -> str:
+    """Quebra textos longos com <br> para evitar reticências (...) e transbordamento em caixas e gráficos."""
+    if not text or len(str(text)) <= max_chars:
+        return str(text) if text is not None else ""
+    words = str(text).split(" ")
+    lines = []
+    current_line = []
+    current_len = 0
+    for w in words:
+        if current_len + len(w) + 1 > max_chars and current_line:
+            lines.append(" ".join(current_line))
+            current_line = [w]
+            current_len = len(w)
+        else:
+            current_line.append(w)
+            current_len += len(w) + 1
+    if current_line:
+        lines.append(" ".join(current_line))
+    return "<br>".join(lines)
+
 def get_cores_foco(nome_candidato=None, sigla_partido=None):
     """
     Retorna (cor_hex, escala_plotly, escala_folium) de acordo com a identidade visual:

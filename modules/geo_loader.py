@@ -22,6 +22,19 @@ def load_municipios_gdf():
 def load_zonas_gdf(cd_mun: str = None, regiao: str = None):
     """Carrega as 209 Zonas-Município de PE com suporte a filtro opcional."""
     gdf = gpd.read_parquet(PATH_GEO_ZONAS)
+
+    # Isolar a Zona 4 do Recife para conter apenas a sede municipal no continente (descartando os polígonos de Noronha em latitude > -7.5)
+    # Isso evita distorção de enquadramento/zoom no mapa do Recife, mantendo a geometria focada na malha urbana
+    if 'Recife_Z4' in gdf['ID_ZONA_MUN'].values:
+        idx_z4 = gdf[gdf['ID_ZONA_MUN'] == 'Recife_Z4'].index
+        if len(idx_z4) > 0:
+            geom = gdf.loc[idx_z4[0], 'geometry']
+            if geom.geom_type == 'MultiPolygon':
+                from shapely.geometry import MultiPolygon
+                parts = [p for p in geom.geoms if p.bounds[1] < -7.5]
+                if len(parts) > 0:
+                    gdf.loc[idx_z4[0], 'geometry'] = MultiPolygon(parts) if len(parts) > 1 else parts[0]
+
     if cd_mun:
         gdf = gdf[gdf['CD_MUN'].astype(str) == str(cd_mun)]
     elif regiao and regiao != "TODAS":

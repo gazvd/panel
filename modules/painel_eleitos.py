@@ -92,7 +92,8 @@ def _render_painel_prefeitos(ano: int, df_mun_map: pd.DataFrame, regiao_selecion
             height=max(380, len(bancada) * 26),
             margin=dict(l=0, r=10, t=10, b=0),
             showlegend=False,
-            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+            uniformtext=dict(minsize=8, mode='show'),
+            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="", tickfont=dict(size=9))
         )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True, key=f"plot_pref_{ano}_{tab_origem}")
@@ -210,7 +211,8 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
                 height=max(360, len(bancada_mun) * 28),
                 margin=dict(l=0, r=10, t=10, b=0),
                 showlegend=False,
-                yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+                uniformtext=dict(minsize=8, mode='show'),
+                yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="", tickfont=dict(size=9))
             )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True, key=f"plot_ver_mun_{ano}_{tab_origem}")
@@ -292,7 +294,8 @@ def _render_painel_vereadores(ano: int, df_mun_map: pd.DataFrame, cd_mun_selecio
                 height=420,
                 margin=dict(l=0, r=10, t=10, b=0),
                 showlegend=False,
-                yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+                uniformtext=dict(minsize=8, mode='show'),
+                yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="", tickfont=dict(size=9))
             )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True, key=f"plot_ver_pe_{ano}_{tab_origem}")
@@ -363,7 +366,8 @@ def _render_painel_alepe(ano: int, tab_origem: str = "mun"):
             height=max(380, len(bancada_alepe) * 28),
             margin=dict(l=0, r=10, t=10, b=0),
             showlegend=False,
-            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+            uniformtext=dict(minsize=8, mode='show'),
+            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="", tickfont=dict(size=9))
         )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True, key=f"plot_alepe_{ano}_{tab_origem}")
@@ -443,7 +447,8 @@ def _render_painel_federal(ano: int, tab_origem: str = "mun"):
             height=max(380, len(bancada_fed) * 28),
             margin=dict(l=0, r=10, t=10, b=0),
             showlegend=False,
-            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="")
+            uniformtext=dict(minsize=8, mode='show'),
+            yaxis=dict(categoryorder='array', categoryarray=bancada_plot['sigla_partido'].tolist(), title="", tickfont=dict(size=9))
         )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True, key=f"plot_fed_{ano}_{tab_origem}")

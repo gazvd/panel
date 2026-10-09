@@ -404,7 +404,7 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                            SUM(total_votos) as total_1,
                            SUM(CASE WHEN {cond_1} THEN total_votos ELSE 0 END) as votos_1
                     FROM '{res_path}'
-                    WHERE ano = {ano_1} AND turno = {turno_1} AND cargo = '{cargo_1}' AND id_municipio = 2611606
+                    WHERE ano = {ano_1} AND turno = {turno_1} AND cargo = '{cargo_1}' AND (id_municipio = 2611606 OR (id_municipio = 2605459 AND zona = 4))
                     GROUP BY zona
                 ),
                 v2 AS (
@@ -412,7 +412,7 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                            SUM(total_votos) as total_2,
                            SUM(CASE WHEN {cond_2} THEN total_votos ELSE 0 END) as votos_2
                     FROM '{res_path}'
-                    WHERE ano = {ano_2} AND turno = {turno_2} AND cargo = '{cargo_2}' AND id_municipio = 2611606
+                    WHERE ano = {ano_2} AND turno = {turno_2} AND cargo = '{cargo_2}' AND (id_municipio = 2611606 OR (id_municipio = 2605459 AND zona = 4))
                     GROUP BY zona
                 ),
                 v3 AS (
@@ -420,7 +420,7 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                            SUM(total_votos) as total_3,
                            SUM(CASE WHEN {cond_3} THEN total_votos ELSE 0 END) as votos_3
                     FROM '{res_path}'
-                    WHERE ano = {ano_3} AND turno = {turno_3} AND cargo = '{cargo_3}' AND id_municipio = 2611606
+                    WHERE ano = {ano_3} AND turno = {turno_3} AND cargo = '{cargo_3}' AND (id_municipio = 2611606 OR (id_municipio = 2605459 AND zona = 4))
                     GROUP BY zona
                 )
                 SELECT 
@@ -701,17 +701,17 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 3px 0;"><b>{nome_display_1[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_1}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_1'])} ({fmt_pct(row['pct_1'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_1'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_1']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 3px 0;"><b>{nome_display_2[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_2}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_2'])} ({fmt_pct(row['pct_2'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_2'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_2']:.2f}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 3px 0;"><b>{nome_display_3[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_3}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_3'])} ({fmt_pct(row['pct_3'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_3'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_3']:.2f}</td>
                     </tr>
@@ -757,17 +757,17 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 3px 0;"><b>{nome_display_1[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_1}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_1'])} ({fmt_pct(row['pct_1'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_1'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_1']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 3px 0;"><b>{nome_display_2[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_2}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_2'])} ({fmt_pct(row['pct_2'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_2'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_2']:.2f}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 3px 0;"><b>{nome_display_3[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_3}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_3'])} ({fmt_pct(row['pct_3'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_3'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_3']:.2f}</td>
                     </tr>
@@ -805,17 +805,17 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 3px 0;"><b>{nome_display_1[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_1}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_1'])} ({fmt_pct(row['pct_1'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_1'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_1']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 3px 0;"><b>{nome_display_2[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_2}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_2'])} ({fmt_pct(row['pct_2'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_2'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_2']:.2f}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 3px 0;"><b>{nome_display_3[:20]}</b></td>
+                        <td style="padding: 3px 0;"><b>{nome_display_3}</b></td>
                         <td style="text-align: right;">{fmt_int(row['votos_3'])} ({fmt_pct(row['pct_3'])})</td>
                         <td style="text-align: right; color: {'#27AE60' if row['ql_3'] >= 1 else '#C0392B'}; font-weight: bold;">QL {row['ql_3']:.2f}</td>
                     </tr>
@@ -834,7 +834,13 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                 popup=folium.Popup(popup_html, max_width=320)
             ).add_to(m)
 
-    st_folium(m, width=None, height=520, returned_objects=[])
+    st_folium(
+        m,
+        key=f"folium_matching_rec_{granul_sel}_{filtro_categ}_{ano_1}_{cargo_1}_{ano_2}_{cargo_2}_{ano_3}_{cargo_3}",
+        width=None,
+        height=520,
+        returned_objects=[]
+    )
 
     # -------------------------------------------------------------
     # 8. GRÁFICOS PLOTLY (TOP BASTIÕES E DISPERSÃO ESTRATÉGICA)
@@ -867,12 +873,13 @@ def render_tab_matching_recife(df_meta, df_mun_map):
                 title="Top 10 Territórios com Maior Sinergia Conjunta (Score 3D)"
             )
             fig_bar.update_layout(
-                yaxis={'categoryorder': 'total ascending'},
+                yaxis={'categoryorder': 'total ascending', 'tickfont': dict(size=9), 'automargin': True},
                 xaxis_title="% dos Votos Válidos no Território",
                 yaxis_title="",
                 legend_title="",
                 height=450,
-                margin=dict(l=10, r=10, t=40, b=10)
+                margin=dict(l=10, r=10, t=40, b=10),
+                uniformtext=dict(minsize=8, mode='show')
             )
             st.plotly_chart(fig_bar, use_container_width=True)
         else:

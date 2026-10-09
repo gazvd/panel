@@ -5,7 +5,7 @@ import plotly.express as px
 import pandas as pd
 from modules.geo_loader import load_zonas_gdf
 from modules.data_loader import get_votos_zonas
-from config import fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text
+from config import fmt_int, fmt_pct, get_cores_foco, get_contrast_color, normalize_text, wrap_label
 
 def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecionado, df_mun_map, modo_todos=None):
     if modo_todos is None:
@@ -134,8 +134,8 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
             eixo_x = 'margem_pct' if criterio_venc == "Margem de Vitória (p.p.)" else ('pct_vencedor' if criterio_venc == "% do Vencedor" else 'votos_vencedor')
             top10 = df_view_plot.head(10).sort_values(eixo_x, ascending=True).copy()
             top10['texto_barra'] = top10.apply(
-                lambda r: f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])}" if criterio_venc == "Margem de Vitória (p.p.)"
-                else (f"{r['vencedor']}: {fmt_pct(r['pct_vencedor'])}" if criterio_venc == "% do Vencedor" else f"{r['vencedor']}: {fmt_int(r['votos_vencedor'])}"),
+                lambda r: wrap_label(f"{r['vencedor']}: +{fmt_pct(r['margem_pct'])}" if criterio_venc == "Margem de Vitória (p.p.)"
+                else (f"{r['vencedor']}: {fmt_pct(r['pct_vencedor'])}" if criterio_venc == "% do Vencedor" else f"{r['vencedor']}: {fmt_int(r['votos_vencedor'])}"), 26),
                 axis=1
             )
             color_map = {row['vencedor']: row['cor'] for _, row in gdf_merged.iterrows()}
@@ -150,7 +150,13 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
                 text='texto_barra',
                 labels={eixo_x: criterio_venc, 'NM_ZONA_MUN': 'Zona Eleitoral', 'vencedor': 'Vencedor'}
             )
-            fig.update_layout(height=430, margin=dict(l=0, r=0, t=10, b=0), showlegend=True)
+            fig.update_layout(
+                height=430,
+                margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=True,
+                uniformtext=dict(minsize=8, mode='show'),
+                yaxis=dict(tickfont=dict(size=9), automargin=True)
+            )
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
 
@@ -185,7 +191,13 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
                 )
             ).add_to(m)
 
-            st_folium(m, height=430, width="100%")
+            st_folium(
+                m,
+                key=f"folium_zonas_todos_{rd_sel}_{mun_sel}_{ano}_{cargo}_{turno}",
+                returned_objects=[],
+                height=430,
+                width="100%"
+            )
 
         st.markdown("**Tabela Completa de Vencedores por Zona Eleitoral**")
         df_table_zonas = df_view[[
@@ -337,7 +349,12 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
                 labels={'pct_votos': '% Válidos', 'NM_ZONA_MUN': 'Zona Eleitoral'}
             )
             
-        fig.update_layout(height=430, margin=dict(l=0, r=0, t=10, b=0))
+        fig.update_layout(
+            height=430,
+            margin=dict(l=0, r=0, t=10, b=0),
+            uniformtext=dict(minsize=8, mode='show'),
+            yaxis=dict(tickfont=dict(size=9), automargin=True)
+        )
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
         
@@ -386,7 +403,13 @@ def render_tab_zonas(ano, turno, cargo, modo, partido_selecionado, cand_selecion
             )
         ).add_to(m)
         
-        st_folium(m, height=430, width="100%")
+        st_folium(
+            m,
+            key=f"folium_zonas_ind_{alvo_nome}_{rd_sel}_{mun_sel}_{criterio_analise}_{ano}_{cargo}_{turno}",
+            returned_objects=[],
+            height=430,
+            width="100%"
+        )
         
     st.markdown("**Tabela Completa das Zonas Eleitorais**")
     df_table_z = df_view.copy()

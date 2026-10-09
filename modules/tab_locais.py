@@ -151,8 +151,8 @@ def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecio
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Colégios Analisados", f"{len(df_loc_view)}")
         col2.metric("Líder em Colégios", f"{lider_cand} ({lider_vitorias} locais)" if lider_cand != "-" else "-")
-        col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['nome_local'][:22]}...)" if top_margem is not None else "-")
-        col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['nome_local'][:22]}...)" if menor_margem is not None else "-")
+        col3.metric("Maior Margem", f"+{fmt_pct(top_margem['margem_pct'])} ({top_margem['nome_local']})" if top_margem is not None else "-")
+        col4.metric("Disputa Mais Acirrada", f"+{fmt_pct(menor_margem['margem_pct'])} ({menor_margem['nome_local']})" if menor_margem is not None else "-")
 
         # Badges
         badges = []
@@ -222,7 +222,13 @@ def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecio
                     weight=1.2
                 ).add_to(m)
 
-            st_folium(m, height=450, width="100%")
+            st_folium(
+                m,
+                key=f"folium_locais_todos_{mun_nome_sel}_{criterio_venc}_{ano}_{cargo}_{turno}",
+                returned_objects=[],
+                height=450,
+                width="100%"
+            )
         else:
             st.info("Nenhum colégio eleitoral com coordenadas válidas para exibir no mapa deste município.")
 
@@ -455,7 +461,13 @@ def render_tab_locais(ano, turno, cargo, modo, partido_selecionado, cand_selecio
                 weight=1.2
             ).add_to(m)
             
-        st_folium(m, height=450, width="100%")
+        st_folium(
+            m,
+            key=f"folium_locais_ind_{mun_nome_sel}_{alvo_nome}_{criterio_analise}_{ano}_{cargo}_{turno}",
+            returned_objects=[],
+            height=450,
+            width="100%"
+        )
     else:
         st.info("Nenhum colégio eleitoral com coordenadas válidas para exibir no mapa deste município.")
         
