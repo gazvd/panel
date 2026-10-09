@@ -380,10 +380,10 @@ def render_tab_cruzamento(df_meta, df_mun_map):
     taxa_dobradinha = (n_dobradinha / total_unidades) * 100.0 if total_unidades > 0 else 0.0
     taxa_divergencia = (n_divergentes / total_unidades) * 100.0 if total_unidades > 0 else 0.0
 
-    # Correlações Estatísticas
-    val_pearson = df_cruz['pct_a'].corr(df_cruz['pct_b'], method='pearson')
+    # Correlações Estatísticas (puramente nativas em pandas/numpy, sem dependência do scipy)
+    val_pearson = df_cruz['pct_a'].corr(df_cruz['pct_b'])
     corr_pearson = float(val_pearson) if pd.notna(val_pearson) else 0.0
-    val_spearman = df_cruz['pct_a'].corr(df_cruz['pct_b'], method='spearman')
+    val_spearman = df_cruz['pct_a'].rank().corr(df_cruz['pct_b'].rank())
     corr_spearman = float(val_spearman) if pd.notna(val_spearman) else 0.0
     r2 = (corr_pearson ** 2) * 100.0
 
