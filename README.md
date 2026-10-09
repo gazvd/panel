@@ -42,8 +42,8 @@ A aplicação conta com **6 abas modulares especializadas**:
 
 ## 🎨 Identidade Visual Inteligente
 As cores dos mapas coropléticos, barras e marcadores refletem automaticamente a legenda ou candidato selecionado:
-* **João Campos / PSB:** Amarelo de campanha (`#FFCC00`)
-* **Raquel Lyra:** Roxo característico (`#6F2C91`)
+* **João Campos / PSB:** Amarelo oficial (`#FEC806`)
+* **Raquel Lyra / PSD:** Roxo claro (`#9B59B6`)
 * **PT / Lula:** Vermelho partidário (`#E31A1C`)
 * **PL / Bolsonaro:** Azul marinho (`#002B7F`)
 * Demais partidos mapeados conforme suas cores de convenção.

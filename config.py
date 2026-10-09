@@ -39,12 +39,12 @@ REGIOES_DESENVOLVIMENTO = [
 CORES_PARTIDOS = {
     "PT": "#E31A1C",
     "PL": "#002B7F",
-    "PSB": "#FF7F00",
+    "PSB": "#FEC806",
     "PSDB": "#1F78B4",
     "MDB": "#33A02C",
     "UNIÃO": "#6A3D9A",
     "PP": "#0099FF",
-    "PSD": "#FB9A99",
+    "PSD": "#9B59B6",
     "REPUBLICANOS": "#0055A5",
     "PODEMOS": "#00C0FF",
     "PDT": "#B15928",
@@ -123,8 +123,8 @@ def normalize_text(s):
 def get_cores_foco(nome_candidato=None, sigla_partido=None):
     """
     Retorna (cor_hex, escala_plotly, escala_folium) de acordo com a identidade visual:
-    - João Campos / PSB: Amarelo (#FFCC00 / YlOrRd)
-    - Raquel Lyra: Roxo (#6F2C91 / Purples)
+    - João Campos / PSB: Amarelo (#FEC806 / YlOrRd)
+    - Raquel Lyra / PSD: Roxo Claro (#9B59B6 / Purples)
     - PT / Lula: Vermelho (#E31A1C / Reds)
     - PL / Bolsonaro / Gilson: Azul (#002B7F / Blues)
     """
@@ -136,12 +136,17 @@ def get_cores_foco(nome_candidato=None, sigla_partido=None):
     c_norm = _norm(nome_candidato)
     p_norm = _norm(sigla_partido)
     
+    # Se sigla_partido não foi informada mas nome_candidato for a sigla ou contiver (PARTIDO)
+    if not p_norm and c_norm:
+        p_clean = c_norm.replace("(PARTIDO)", "").replace("(LEGENDA)", "").replace("PARTIDO", "").strip()
+        p_norm = p_clean
+
     # 1. Candidatos com identidade visual marcante
     if any(k in c_norm for k in ["JOAO CAMPOS", "DANILO CABRAL"]):
-        return "#FFCC00", ["#FFF9C4", "#FDD835", "#F57F17", "#E65100"], "YlOrRd"
+        return "#FEC806", ["#FFFDE7", "#FFF59D", "#FEC806", "#F57F17", "#E65100"], "YlOrRd"
         
     if "RAQUEL LYRA" in c_norm:
-        return "#6F2C91", ["#E1BEE7", "#AB47BC", "#7B1FA2", "#4A148C"], "Purples"
+        return "#9B59B6", ["#F3E5F5", "#CE93D8", "#9B59B6", "#7B1FA2", "#4A148C"], "Purples"
         
     if "MARILIA ARRAES" in c_norm:
         if p_norm == "PT":
@@ -165,8 +170,14 @@ def get_cores_foco(nome_candidato=None, sigla_partido=None):
     if p_norm in ["PT", "PC DO B", "PCO", "PSTU"]:
         return "#E31A1C", ["#FFCDD2", "#E53935", "#B71C1C"], "Reds"
         
-    if p_norm in ["PSB", "PSOL"]:
-        return "#FFCC00", ["#FFF9C4", "#FDD835", "#F57F17", "#E65100"], "YlOrRd"
+    if p_norm in ["PSB"]:
+        return "#FEC806", ["#FFFDE7", "#FFF59D", "#FEC806", "#F57F17", "#E65100"], "YlOrRd"
+
+    if p_norm in ["PSD"]:
+        return "#9B59B6", ["#F3E5F5", "#CE93D8", "#9B59B6", "#7B1FA2", "#4A148C"], "Purples"
+
+    if p_norm in ["PSOL"]:
+        return "#FFFF33", ["#FFFDE7", "#FFF59D", "#FFFF33", "#FBC02D"], "YlOrRd"
         
     if p_norm in ["PL", "REPUBLICANOS", "PP", "PODEMOS", "PRTB"]:
         return "#002B7F", ["#BBDEFB", "#1976D2", "#0D47A1"], "Blues"
