@@ -14,6 +14,7 @@ from modules.tab_bairros import render_tab_bairros
 from modules.tab_locais import render_tab_locais
 from modules.tab_cruzamento import render_tab_cruzamento
 from modules.tab_matching_recife import render_tab_matching_recife
+from modules.tab_comparativo_eleicoes import render_tab_comparativo_eleicoes
 from modules.auth_logger import registrar_login, obter_historico_acessos, is_admin_user
 
 # 1. Configuração da Página
@@ -298,14 +299,15 @@ if modo_todos:
     st.info("🗺️ **Modo Mapa de Vencedores:** Exibindo os líderes de votos em cada região, município, zona eleitoral, bairro e colégio eleitoral. Para analisar um candidato ou partido individualmente, basta selecioná-lo no menu lateral.")
 
 # 5. Estrutura em Abas Modulares
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🌍 Regiões de Desenvolvimento (12)",
     "🏛️ Municípios (185)",
     "🗳️ Zonas Eleitorais (209)",
     "🏘️ Bairros & Distritos (1.058)",
     "🏫 Colégios Eleitorais (3.406)",
     "🔗 Cruzamentos & Dobradinhas",
-    "🎯 Matching Recife (3 Níveis)"
+    "🎯 Matching Recife (3 Níveis)",
+    "⚖️ Comparativo entre Eleições"
 ])
 
 with tab1:
@@ -328,4 +330,7 @@ with tab6:
 
 with tab7:
     render_tab_matching_recife(df_meta, df_mun_map)
+
+with tab8:
+    render_tab_comparativo_eleicoes(df_meta, df_mun_map)
 

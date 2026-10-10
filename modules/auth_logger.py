@@ -113,9 +113,8 @@ def is_admin_user(username: str) -> bool:
 
     u = username.lower().strip()
 
-    # Usuários administradores padrão
-    admins_padrao = {"admin", "demokratia", "gabriel", "otto", "root"}
-    if u in admins_padrao:
+    # O único administrador autorizado é 'admin'
+    if u == "admin":
         return True
 
     # Permite especificar administradores customizados via secrets.toml (lista ou string separada por vírgula)
