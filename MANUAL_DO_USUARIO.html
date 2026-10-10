@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual do Usuário — Painel de Inteligência Eleitoral de Pernambuco</title>
+<style>
+  :root {
+    --primary: #0D47A1;
+    --primary-light: #E3F2FD;
+    --secondary: #1976D2;
+    --dark: #1E293B;
+    --light-bg: #F8FAFC;
+    --border: #E2E8F0;
+    --accent: #FEC806;
+    --text-muted: #64748B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--dark);
+    background-color: var(--light-bg);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container {
+    max-width: 1040px;
+    margin: 0 auto;
+    background: #FFFFFF;
+    padding: 48px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  .header-cover {
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  .header-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 32px; font-weight: 800; color: var(--primary); margin: 8px 0; }
+  h2 { font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 36px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 18px; font-weight: 700; color: var(--secondary); margin-top: 24px; }
+  h4 { font-size: 15px; font-weight: 700; color: var(--dark); margin: 12px 0 6px 0; }
+  p { margin: 10px 0; }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 20px 0;
+  }
+  .card {
+    background: #F8FAFC;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card-highlight {
+    border-left: 4px solid var(--primary);
+  }
+  .card-accent {
+    border-left: 4px solid #E65100;
+  }
+  .metric-badge {
+    display: inline-block;
+    background: #E2E8F0;
+    color: #334155;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14px;
+  }
+  th, td {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+  th {
+    background: #F1F5F9;
+    font-weight: 700;
+    color: var(--dark);
+  }
+  tr:nth-child(even) { background: #F8FAFC; }
+  .img-box {
+    margin: 20px 0;
+    text-align: center;
+    background: #F8FAFC;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .img-box img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .img-caption {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-weight: 500;
+  }
+  .callout {
+    background: #EFF6FF;
+    border-left: 4px solid #3B82F6;
+    padding: 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+  }
+  .callout-title {
+    font-weight: 700;
+    color: #1D4ED8;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  @media print {
+    body { background: #FFFFFF; font-size: 13px; }
+    .container { box-shadow: none; padding: 0; max-width: 100%; }
+    .page-break { page-break-after: always; break-after: page; }
+    .img-box img { max-height: 380px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- CABEÇALHO / CAPA -->
+  <div class="header-cover">
+    <span class="header-badge">Documento Oficial de Orientação Estratégica</span>
+    <h1>🗳️ Painel de Inteligência Eleitoral de Pernambuco (2008–2026)</h1>
+    <p style="font-size: 17px; color: var(--text-muted); margin: 6px 0 0 0;">
+      Manual Completo de Utilização, Navegação Territorial e Interpretação Estratégica de Dados
+    </p>
+  </div>
+
+  <!-- INTRODUÇÃO E COBERTURA -->
+  <h2>📌 1. Visão Geral da Plataforma</h2>
+  <p>
+    O <strong>Painel de Inteligência Eleitoral de Pernambuco</strong> foi desenvolvido para subsidiar partidos, candidatos, coordenadores de campanha e lideranças políticas com diagnósticos empíricos e análises espaciais de alta precisão. Alimentado por dados oficiais do TRE-PE e do TSE, o sistema cobre integralmente o estado de Pernambuco:
+  </p>
+
+  <div class="grid-2">
+    <div class="card card-highlight">
+      <h4>🏛️ Escala Macrorregional & Municipal</h4>
+      <p>• <strong>12 Regiões de Desenvolvimento</strong> oficiais</p>
+      <p>• <strong>185 Municípios</strong> (100% de Pernambuco + Fernando de Noronha integrado)</p>
+      <p>• Cobertura histórica contínua de <strong>2008 a 2026</strong></p>
+    </div>
+    <div class="card card-highlight">
+      <h4>🔍 Escala Intra-Urbana & Urna a Urna</h4>
+      <p>• <strong>209 Zonas Eleitorais</strong> individualizadas por município</p>
+      <p>• <strong>1.058 Bairros e Distritos</strong> com limites geográficos</p>
+      <p>• <strong>3.406 Colégios Eleitorais</strong> georreferenciados (pins)</p>
+      <p>• <strong>22.111 Seções Eleitorais</strong> analisadas voto a voto</p>
+    </div>
+  </div>
+
+  <!-- ACESSO E AUTENTICAÇÃO -->
+  <h2>🔐 2. Autenticação e Gestão de Acessos</h2>
+  <div class="callout">
+    <div class="callout-title">Controle de Acesso Restrito</div>
+    O sistema possui barreira de segurança por usuário e senha. Cada usuário cadastrado recebe credenciais próprias.
+    Ao finalizar a navegação, basta clicar no botão <strong>"🚪 Sair"</strong> na barra lateral para encerrar a sessão.
+  </div>
+
+  <div class="card card-accent">
+    <h4>🛡️ Painel de Auditoria de Acessos (Exclusivo para o Perfil <code>admin</code>)</h4>
+    <p>
+      Quando o login é realizado pelo administrador (<code>admin</code>), a barra lateral exibe automaticamente o módulo <strong>"🛡️ Auditoria de Acessos"</strong>. Ele permite:
+    </p>
+    <p>1. Ver a tabela com data/hora exata (horário de Pernambuco/Brasília) de cada login efetuado.</p>
+    <p>2. Monitorar quais membros da equipe ou diretório acessaram o painel e acompanhar tentativas incorretas.</p>
+    <p>3. Baixar o arquivo completo com o botão <strong>"📥 Baixar Logs (CSV)"</strong>.</p>
+  </div>
+
+  <!-- FILTROS MESTRES -->
+  <div class="page-break"></div>
+  <h2>🎛️ 3. Filtros Globais da Barra Lateral (Sidebar)</h2>
+  <p>
+    A barra lateral posicionada à esquerda da tela comanda o escopo geral de dados carregado na plataforma.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 28%;">Filtro</th>
+        <th>Descrição e Comportamento</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Ano da Eleição</strong></td>
+        <td>Selecione qualquer pleito entre <strong>2008 e 2026</strong>. O sistema filtra automaticamente os cargos e turnos válidos daquele ano.</td>
+      </tr>
+      <tr>
+        <td><strong>Cargo em Disputa</strong></td>
+        <td>
+          • <em>Eleições Gerais:</em> Presidente, Governador, Senador, Deputado Federal, Deputado Estadual.<br>
+          • <em>Eleições Municipais:</em> Prefeito, Vereador.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Turno</strong></td>
+        <td>Disponível quando houver 2º turno no pleito e cargo selecionado (1º ou 2º Turno).</td>
+      </tr>
+      <tr>
+        <td><strong>Foco: Candidato vs Partido</strong></td>
+        <td>
+          • <strong>👤 Candidato:</strong> Seleção individual por nome de urna ou a opção <code>⭐ TODOS (Mapa de Vencedores)</code>.<br>
+          • <strong>🚩 Partido:</strong> Agrega todos os votos nominais da legenda somados aos votos de legenda partidária.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- DETALHAMENTO DAS 8 ABAS -->
+  <h2>📑 4. O que cada Tela Apresenta e Quais Análises Realizar</h2>
+
+  <!-- ABA 1 -->
+  <h3>Aba 1: 🌍 Regiões de Desenvolvimento (12)</h3>
+  <p>
+    Apresenta o mapa coroplético de Pernambuco dividido em suas 12 Regiões de Desenvolvimento oficiais.
+  </p>
+  <div class="card">
+    <p><strong>Elementos da Tela:</strong> Mapa interativo com as 12 RDs, ranking de votos absolutos, percentual de válidos e Quociente Locacional (QL).</p>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Onde está o coração geográfico da minha votação?"</em> (RMR, Agreste Central, Mata Norte ou Sertão do São Francisco).</li>
+      <li><em>"Onde o candidato tem superconcentração de votos?"</em> Um $QL > 1,0$ indica hiper-representatividade regional.</li>
+      <li><em>"Para Governador/Senador, o candidato equilibrou a capital com o interior?"</em></li>
+    </ul>
+  </div>
+
+  <!-- ABA 2 -->
+  <h3>Aba 2: 🏛️ Municípios (185)</h3>
+  <p>
+    Exibe a malha completa dos 185 municípios pernambucanos com coloração temática.
+  </p>
+  <div class="img-box">
+    <img src="assets/charts/12_mapa_prefeito.png" alt="Mapa de Vencedores por Município">
+    <div class="img-caption">Figura 1: Mapa dos 185 Municípios de Pernambuco com indicação dos partidos vencedores e margens de vitória.</div>
+  </div>
+  <div class="card">
+    <p><strong>Elementos da Tela:</strong> Mapa coroplético dos 185 municípios, placa de vitórias municipais por partido, Top 10 cidades em votos e percentuais, e cálculo da <strong>Margem de Vitória</strong> (vantagem do 1º sobre o 2º colocado).</p>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Quais cidades são 'fortalezas eleitorais' (vitória com mais de 60% dos votos) e quais foram vencidas no detalhe (< 5% de margem)?"</em></li>
+      <li><em>"O prefeito aliado realmente transferiu a votação combinada para o deputado da chapa?"</em></li>
+      <li><em>"Quais municípios com mais de 40 mil eleitores estão sem uma liderança hegemônica estabelecida?"</em></li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ABA 3 -->
+  <h3>Aba 3: 🗳️ Zonas Eleitorais (209)</h3>
+  <p>
+    Segmenta os votos pelas 209 Zonas Eleitorais da Justiça Eleitoral, com ênfase nas capitais e polos regionais.
+  </p>
+  <div class="img-box">
+    <img src="assets/charts/16_aptos_zona.png" alt="Zonas Eleitorais">
+    <div class="img-caption">Figura 2: Distribuição de eleitores aptos, comparecimento e votação nas Zonas Eleitorais.</div>
+  </div>
+  <div class="card">
+    <p><strong>Elementos da Tela:</strong> Mapa das zonas recortadas por cidade, com filtro específico para o <strong>Recife (11 Zonas Eleitorais)</strong> e grandes municípios, além de taxas de abstenção e comparecimento.</p>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Como a votação do candidato se divide entre as zonas de perfil periférico e as zonas de classe média alta da capital?"</em></li>
+      <li><em>"Quais zonas apresentaram abstenção anormal (> 22%), representando um bolsão de eleitores que podem ser mobilizados no dia da eleição?"</em></li>
+    </ul>
+  </div>
+
+  <!-- ABA 4 -->
+  <h3>Aba 4: 🏘️ Bairros & Distritos (1.058)</h3>
+  <p>
+    Mosaico territorial de máxima desagregação urbana e distrital rural.
+  </p>
+  <div class="img-box">
+    <img src="assets/charts/17_tipologia_bairros.png" alt="Bairros e Distritos">
+    <div class="img-caption">Figura 3: Análise espacial por bairros e tipologias territoriais urbanas.</div>
+  </div>
+  <div class="card">
+    <p><strong>Elementos da Tela:</strong> Polígonos de todos os 94 bairros do Recife (Boa Viagem, Casa Amarela, Madalena, Várzea, Ibura, etc.) e distritos dos 185 municípios, com barra de pesquisa textual instantânea.</p>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Para campanhas municipais (Prefeito e Vereador): onde concentrar carreatas, caminhadas e ações de rua?"</em></li>
+      <li><em>"Em quais bairros a oposição lidera e qual a distância percentual para o primeiro colocado?"</em></li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ABA 5 -->
+  <h3>Aba 5: 🏫 Colégios Eleitorais (3.406)</h3>
+  <p>
+    O nível atômico da estratégia eleitoral: mapa de pontos georreferenciados de todas as escolas e locais de votação de Pernambuco.
+  </p>
+  <div class="card">
+    <p><strong>Elementos da Tela:</strong> Pins de cada colégio eleitoral com nome da escola, endereço, bairro, quantidade de seções ativas, total de eleitores aptos e resultado urna a urna.</p>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Quais são os 'megacolégios' (+5.000 eleitores) da cidade onde uma presença maciça garante milhares de votos em um único quarteirão?"</em></li>
+      <li><em>"Como dimensionar delegados partidários e fiscais de boca de urna no dia da eleição?"</em></li>
+    </ul>
+  </div>
+
+  <!-- ABA 6 -->
+  <h3>Aba 6: 🔗 Cruzamentos & Dobradinhas</h3>
+  <p>
+    Analisa a correlação espacial entre dois atores eleitorais (Candidatos ou Partidos), mesmo em cargos e pleitos distintos.
+  </p>
+  <div class="card">
+    <p><strong>Elementos da Tela:</strong> Gráfico de Dispersão (Scatter Plot), Coeficiente de Correlação de Pearson ($r$) e a <strong>Matriz Estratégica dos 4 Quadrantes Políticos</strong>:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Quadrante</th>
+          <th>Classificação</th>
+          <th>Interpretação Política Estratégica</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Q1</strong></td>
+          <td><strong>Dobradinha de Ouro</strong></td>
+          <td>Ambos os candidatos têm votação acima da média. Território de sinergia total onde a parceria funciona plenamente.</td>
+        </tr>
+        <tr>
+          <td><strong>Q2</strong></td>
+          <td><strong>Potencial de Herança</strong></td>
+          <td>O parceiro B é muito forte, mas o candidato A ainda é fraco. Território prioritário para o parceiro B transferir votos para A.</td>
+        </tr>
+        <tr>
+          <td><strong>Q3</strong></td>
+          <td><strong>Território Neutro / Vácuo</strong></td>
+          <td>Ambos são fracos. Exige avaliação de custo-benefício antes de gastar recursos de campanha.</td>
+        </tr>
+        <tr>
+          <td><strong>Q4</strong></td>
+          <td><strong>Base Própria de A</strong></td>
+          <td>Fortaleza consolidada do candidato A, onde ele tem capital político suficiente para alavancar o parceiro B.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"A dobradinha entre o Deputado Federal X e o Estadual Y realmente se complementa ou eles disputam votos no mesmo lugar?"</em></li>
+      <li><em>"Existe canibalismo eleitoral entre candidatos da mesma coligação?"</em></li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ABA 7 -->
+  <h3>Aba 7: 🎯 Matching Recife (3 Níveis)</h3>
+  <p>
+    Módulo especializado exclusivo da capital pernambucana, estruturado em três níveis integrados: <strong>1. Consolidado Municipal</strong>, <strong>2. As 11 Zonas Eleitorais</strong> e <strong>3. Os 94 Bairros Oficiais</strong>.
+  </p>
+  <div class="card">
+    <p><strong>Destaque de Engenharia Geoespacial:</strong> Fernando de Noronha é computado com fidelidade na 4ª Zona Eleitoral continental para cálculo exato de votos, mas sua geometria marítima é filtrada no mapa para não deformar o enquadramento urbano da capital.</p>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Como a capital se comporta como termômetro das disputas estaduais?"</em></li>
+      <li><em>"Qual a taxa de transferência e abstenção entre as eleições municipais e gerais no Recife?"</em></li>
+    </ul>
+  </div>
+
+  <!-- ABA 8 -->
+  <h3>Aba 8: ⚖️ Comparativo de Desempenho entre Eleições</h3>
+  <p>
+    Módulo temporal para acompanhar a trajetória histórica e evolução de votos de candidatos e partidos ao longo dos anos.
+  </p>
+  <div class="card">
+    <p><strong>Configuração de Até 4 Pleitos Simultâneos:</strong></p>
+    <ul>
+      <li><strong>👤 Candidato A:</strong> Pleito 1 (Base/Passado) vs Pleito 2 (Comparação/Recente). Permite comparar o <strong>mesmo candidato</strong> (ex: <em>João Campos 2020 vs João Campos 2024</em>) ou <strong>sucessores do mesmo partido</strong> (ex: <em>Danilo Cabral 2022 vs João Campos 2026</em>).</li>
+      <li><strong>👥 Candidato B (Opcional):</strong> Habilita o confronto direto com um oponente nas mesmas datas (ex: <em>Marília Arraes 2020 vs Gilson Machado 2024</em>).</li>
+    </ul>
+    <p><strong>Gráfico de Barras Agrupadas por Território:</strong></p>
+    <p>Em cada unidade territorial (Zona, Município, RD ou Bairro), as barras de todos os pleitos selecionados ficam <strong>agrupadas lado a lado</strong>, permitindo comparar de relance o ganho ou perda de votos.</p>
+    <p><strong>Alternador de 4 Métricas:</strong></p>
+    <ol>
+      <li><strong>Votos Nominais:</strong> Volume absoluto de votos recebidos.</li>
+      <li><strong>% de Votos Válidos:</strong> Desempenho relativo sobre o total de válidos.</li>
+      <li><strong>Δ Saldo de Votos (Pleito 2 - Pleito 1):</strong> Ganho ou perda real de votos.</li>
+      <li><strong>Δ Variação % em p.p.:</strong> Crescimento ou recuo em pontos percentuais.</li>
+    </ol>
+    <p><strong>🎯 Perguntas Políticas Respondidas:</strong></p>
+    <ul>
+      <li><em>"Onde o candidato mais cresceu da primeira eleição para a reeleição?"</em></li>
+      <li><em>"A perda de votos do partido A migrou para a abstenção ou foi capturada diretamente pelo adversário B?"</em></li>
+      <li><em>"Em quais bairros o sucessor político conseguiu herdar a totalidade dos votos do seu antecessor?"</em></li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- MATRIZ DE PERFIS -->
+  <h2>🎯 5. Guia Rápido de Uso por Perfil Político</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Perfil do Usuário</th>
+        <th>Abas Mais Recomendadas</th>
+        <th>Principal Decisão Tomada</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Prefeito / Vereador</strong></td>
+        <td>Abas 4 (Bairros), 5 (Colégios) e 8 (Comparativo)</td>
+        <td>Direcionamento de atos de campanha de rua e priorização de colégios com grande volume de indecisos.</td>
+      </tr>
+      <tr>
+        <td><strong>Deputado Federal / Estadual</strong></td>
+        <td>Abas 1 (Regiões), 2 (Municípios) e 6 (Cruzamentos)</td>
+        <td>Auditoria de compromissos com prefeitos do interior e escolha do parceiro ideal para dobradinha.</td>
+      </tr>
+      <tr>
+        <td><strong>Governador / Senador</strong></td>
+        <td>Abas 1 (Regiões), 2 (Municípios) e 8 (Comparativo)</td>
+        <td>Estratégia majoritária de equilíbrio entre Região Metropolitana, Agreste e Sertão.</td>
+      </tr>
+      <tr>
+        <td><strong>Coordenador / Marqueteiro</strong></td>
+        <td>Abas 3 (Zonas), 6 (Cruzamentos) e 8 (Comparativo)</td>
+        <td>Alocação de orçamento de publicidade segmentada e definição de narrativas de discurso por região.</td>
+      </tr>
+      <tr>
+        <td><strong>Diretório Partidário</strong></td>
+        <td>Abas 2 (Municípios) e 8 (Comparativo)</td>
+        <td>Mapeamento de prefeituras conquistadas e retenção de votos da legenda ao longo dos pleitos.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- GLOSSÁRIO -->
+  <h2>📖 6. Glossário de Conceitos Eleitorais</h2>
+  <div class="grid-2">
+    <div class="card">
+      <span class="metric-badge">Votos Nominais</span>
+      <p>Votos atribuídos diretamente a um candidato individual.</p>
+      <span class="metric-badge">Votos Válidos</span>
+      <p>Soma dos votos nominais com os votos de legenda (exclui brancos e nulos).</p>
+      <span class="metric-badge">Margem de Vitória</span>
+      <p>Diferença (em votos ou p.p.) entre o 1º e o 2º colocado no território.</p>
+    </div>
+    <div class="card">
+      <span class="metric-badge">Quociente Locacional (QL)</span>
+      <p>Índice que mede se o candidato tem concentração de votos acima da média na região ($QL > 1,0$).</p>
+      <span class="metric-badge">Pontos Percentuais (p.p.)</span>
+      <p>Diferença aritmética simples entre duas porcentagens.</p>
+      <span class="metric-badge">Abstenção Eleitoral</span>
+      <p>Porcentagem de eleitores aptos que deixaram de votar no dia da eleição.</p>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px;">
+    Painel de Inteligência Eleitoral de Pernambuco • Documento confidencial para uso das equipes autorizadas.
+  </div>
+
+</div>
+
+</body>
+</html>
