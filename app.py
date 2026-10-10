@@ -14,6 +14,7 @@ from modules.tab_bairros import render_tab_bairros
 from modules.tab_locais import render_tab_locais
 from modules.tab_cruzamento import render_tab_cruzamento
 from modules.tab_matching_recife import render_tab_matching_recife
+from modules.auth_logger import registrar_login, obter_historico_acessos, is_admin_user
 
 # 1. Configuração da Página
 st.set_page_config(
@@ -139,13 +140,16 @@ def check_password():
             if users_db and u_clean in users_db and str(users_db[u_clean]) == password:
                 st.session_state["authenticated"] = True
                 st.session_state["logged_user"] = username
+                registrar_login(username, acao="Login com sucesso")
                 st.rerun()
             # Validação 2: Senha única cadastrada (permite qualquer nome de usuário preenchido com a senha certa)
             elif not users_db and single_pass and password == single_pass:
                 st.session_state["authenticated"] = True
                 st.session_state["logged_user"] = username
+                registrar_login(username, acao="Login com sucesso")
                 st.rerun()
             else:
+                registrar_login(username, acao="Tentativa incorreta", detalhes="Senha ou usuário inválido")
                 st.error("Usuário ou senha incorretos. Tente novamente.")
 
     return False
@@ -162,11 +166,32 @@ df_mun_map['CD_MUN'] = df_mun_map['CD_MUN'].astype(str)
 
 # 3. Barra Lateral (Sidebar) com Filtros Globais
 st.sidebar.title("🗳️ Filtros Eleitorais")
-st.sidebar.markdown(f"👤 **Usuário:** `{st.session_state.get('logged_user', 'Conectado')}`")
+user_atual = st.session_state.get('logged_user', 'Conectado')
+st.sidebar.markdown(f"👤 **Usuário:** `{user_atual}`")
 if st.sidebar.button("🚪 Sair", key="btn_logout", use_container_width=True):
     st.session_state["authenticated"] = False
     st.session_state["logged_user"] = None
     st.rerun()
+
+# Painel de Auditoria de Acessos (exclusivo para administradores)
+if is_admin_user(user_atual):
+    with st.sidebar.expander("🛡️ Auditoria de Acessos", expanded=False):
+        st.caption("Histórico recente de logins:")
+        df_logs = obter_historico_acessos(limit=100)
+        if df_logs is not None and not df_logs.empty:
+            st.dataframe(df_logs, use_container_width=True, hide_index=True)
+            csv_logs = df_logs.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 Baixar Logs (CSV)",
+                data=csv_logs,
+                file_name="auditoria_acessos_painel.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="btn_download_logs"
+            )
+        else:
+            st.info("Nenhum registro de acesso encontrado.")
+
 st.sidebar.markdown("---")
 
 # Filtro Ano
